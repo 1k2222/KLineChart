@@ -254,6 +254,7 @@ export interface CandleBarColor extends ChangeColor {
 export interface CandleStyle {
   type: CandleType
   bar: CandleBarColor
+  fadedBar: CandleBarColor
   area: CandleAreaStyle
   priceMark: CandlePriceMarkStyle
   tooltip: CandleTooltipStyle
@@ -278,6 +279,7 @@ export interface IndicatorStyle {
   circles: IndicatorPolygonStyle[]
   lastValueMark: IndicatorLastValueMarkStyle
   tooltip: IndicatorTooltipStyle
+
   [key: string]: unknown
 }
 
@@ -331,6 +333,7 @@ export interface OverlayStyle {
   circle: PolygonStyle
   arc: LineStyle
   text: TextStyle
+
   [key: string]: unknown
 }
 
@@ -357,7 +360,10 @@ const Color = {
   GREEN: '#2DC08E',
   WHITE: '#FFFFFF',
   GREY: '#76808F',
-  BLUE: '#1677FF'
+  BLUE: '#1677FF',
+  LIGHTRED: 'hsl(347, 95%, 90%)',
+  LIGHTGREEN: 'hsl(160, 62%, 90%)',
+  LIGHTGREY: 'hsl(216, 10%, 90%)'
 }
 
 function getDefaultGridStyle (): GridStyle {
@@ -406,6 +412,18 @@ function getDefaultCandleStyle (): CandleStyle {
       upWickColor: Color.GREEN,
       downWickColor: Color.RED,
       noChangeWickColor: Color.GREY
+    },
+    fadedBar: {
+      compareRule: 'current_open',
+      upColor: Color.LIGHTGREEN,
+      downColor: Color.LIGHTRED,
+      noChangeColor: Color.LIGHTGREY,
+      upBorderColor: Color.LIGHTGREEN,
+      downBorderColor: Color.LIGHTRED,
+      noChangeBorderColor: Color.LIGHTGREY,
+      upWickColor: Color.LIGHTGREEN,
+      downWickColor: Color.LIGHTRED,
+      noChangeWickColor: Color.LIGHTGREY
     },
     area: {
       lineSize: 2,

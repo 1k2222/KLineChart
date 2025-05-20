@@ -29,6 +29,7 @@ import { PaneIdConstants } from '../pane/types'
 export interface CandleBarOptions {
   type: Exclude<CandleType, 'area'>
   styles: CandleBarColor
+  fadedStyles?: CandleBarColor
 }
 
 export default class CandleBarView extends ChildrenView {
@@ -43,7 +44,7 @@ export default class CandleBarView extends ChildrenView {
     const chartStore = pane.getChart().getChartStore()
     const candleBarOptions = this.getCandleBarOptions()
     if (candleBarOptions !== null) {
-      const { type, styles } = candleBarOptions
+      const { type, styles, fadedStyles } = candleBarOptions
       let ohlcSize = 0
       let halfOhlcSize = 0
       if (candleBarOptions.type === 'ohlc') {
@@ -58,21 +59,22 @@ export default class CandleBarView extends ChildrenView {
       this.eachChildren((visibleData, barSpace) => {
         const { x, data: { current, prev } } = visibleData
         if (isValid(current)) {
-          const { open, high, low, close } = current
+          const { open, high, low, close, faded } = current
           const comparePrice = styles.compareRule === 'current_open' ? open : (prev?.close ?? close)
           const colors: string[] = []
+          const currentStyle = (undefined !== faded && undefined !== fadedStyles) ? fadedStyles : styles
           if (close > comparePrice) {
-            colors[0] = styles.upColor
-            colors[1] = styles.upBorderColor
-            colors[2] = styles.upWickColor
+            colors[0] = currentStyle.upColor
+            colors[1] = currentStyle.upBorderColor
+            colors[2] = currentStyle.upWickColor
           } else if (close < comparePrice) {
-            colors[0] = styles.downColor
-            colors[1] = styles.downBorderColor
-            colors[2] = styles.downWickColor
+            colors[0] = currentStyle.downColor
+            colors[1] = currentStyle.downBorderColor
+            colors[2] = currentStyle.downWickColor
           } else {
-            colors[0] = styles.noChangeColor
-            colors[1] = styles.noChangeBorderColor
-            colors[2] = styles.noChangeWickColor
+            colors[0] = currentStyle.noChangeColor
+            colors[1] = currentStyle.noChangeBorderColor
+            colors[2] = currentStyle.noChangeWickColor
           }
           const openY = yAxis.convertToPixel(open)
           const closeY = yAxis.convertToPixel(close)
@@ -158,7 +160,8 @@ export default class CandleBarView extends ChildrenView {
     const candleStyles = this.getWidget().getPane().getChart().getStyles().candle
     return {
       type: candleStyles.type as Exclude<CandleType, 'area'>,
-      styles: candleStyles.bar
+      styles: candleStyles.bar,
+      fadedStyles: candleStyles.fadedBar
     }
   }
 
