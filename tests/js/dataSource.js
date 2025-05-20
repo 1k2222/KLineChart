@@ -8018,8 +8018,8 @@ var kLineDataList = [
 ]
 
 function generated () {
-  return kLineDataList.map(function (data) {
-    return {
+  return kLineDataList.map(function (data, index) {
+    const ret = {
       timestamp: new Date(data[0]).getTime(),
       open: +data[1],
       high: +data[2],
@@ -8027,5 +8027,9 @@ function generated () {
       close: +data[4],
       volume: Math.ceil(+data[5] * 10000)
     }
+    if (index % 2 === 1) {
+      ret.faded = 1
+    }
+    return ret
   })
 }

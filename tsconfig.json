@@ -9,6 +9,7 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "experimentalDecorators": true,
+    "sourceMap": true,
     "lib": [
       "dom",
       "es2018"
