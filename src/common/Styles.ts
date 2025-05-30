@@ -233,7 +233,7 @@ export type CandleTooltipLegendsCustomCallback = (data: NeighborData<Nullable<KL
 
 export interface CandleTooltipStyle extends TooltipStyle {
   title: TooltipTitleStyle & { template: string }
-  legend: TooltipLegendStyle & { custom: CandleTooltipLegendsCustomCallback | TooltipLegend[] }
+  legend: TooltipLegendStyle & { template: CandleTooltipLegendsCustomCallback | TooltipLegend[] }
   rect: CandleTooltipRectStyle
 }
 
@@ -527,7 +527,7 @@ function getDefaultCandleStyle (): CandleStyle {
         marginRight: 8,
         marginBottom: 4,
         defaultValue: 'n/a',
-        custom: [
+        template: [
           { title: 'time', value: '{time}' },
           { title: 'open', value: '{open}' },
           { title: 'high', value: '{high}' },
