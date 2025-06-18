@@ -132,6 +132,12 @@ export interface GridStyle {
 	vertical: StateLineStyle;
 }
 export type TooltipTextStyle = Pick<TextStyle, "color" | "size" | "family" | "weight"> & Margin;
+export type TooltipTitleStyle = TooltipTextStyle & {
+	show: boolean;
+};
+export type TooltipLegendStyle = TooltipTextStyle & {
+	defaultValue: string;
+};
 export interface TooltipLegendChild {
 	text: string;
 	color: string;
@@ -144,11 +150,9 @@ export type TooltipFeaturePosition = "left" | "middle" | "right";
 export interface TooltipFeatureStyle extends FeatureStyle {
 	position: TooltipFeaturePosition;
 }
-export interface TooltipStyle {
+export interface TooltipStyle extends Offset {
 	showRule: TooltipShowRule;
 	showType: TooltipShowType;
-	defaultValue: string;
-	text: TooltipTextStyle;
 	features: TooltipFeatureStyle[];
 }
 export interface CandleAreaPointStyle {
@@ -199,9 +203,14 @@ export type CandleTooltipRectPosition = "fixed" | "pointer";
 export interface CandleTooltipRectStyle extends Omit<RectStyle, "style" | "borderDashedValue" | "borderStyle">, Padding, Offset {
 	position: CandleTooltipRectPosition;
 }
-export type CandleTooltipCustomCallback = (data: NeighborData<Nullable<KLineData>>, styles: CandleStyle) => TooltipLegend[];
-export interface CandleTooltipStyle extends TooltipStyle, Offset {
-	custom: CandleTooltipCustomCallback | TooltipLegend[];
+export type CandleTooltipLegendsCustomCallback = (data: NeighborData<Nullable<KLineData>>, styles: CandleStyle) => TooltipLegend[];
+export interface CandleTooltipStyle extends TooltipStyle {
+	title: TooltipTitleStyle & {
+		template: string;
+	};
+	legend: TooltipLegendStyle & {
+		custom: CandleTooltipLegendsCustomCallback | TooltipLegend[];
+	};
 	rect: CandleTooltipRectStyle;
 }
 export type CandleType = "candle_solid" | "candle_stroke" | "candle_up_stroke" | "candle_down_stroke" | "ohlc" | "area";
@@ -218,6 +227,7 @@ export interface CandleBarColor extends ChangeColor {
 export interface CandleStyle {
 	type: CandleType;
 	bar: CandleBarColor;
+	fadedBar: CandleBarColor;
 	area: CandleAreaStyle;
 	priceMark: CandlePriceMarkStyle;
 	tooltip: CandleTooltipStyle;
@@ -227,9 +237,12 @@ export interface IndicatorLastValueMarkStyle {
 	show: boolean;
 	text: LastValueMarkTextStyle;
 }
-export interface IndicatorTooltipStyle extends TooltipStyle, Offset {
-	showName: boolean;
-	showParams: boolean;
+export interface IndicatorTooltipStyle extends TooltipStyle {
+	title: TooltipTitleStyle & {
+		showName: boolean;
+		showParams: boolean;
+	};
+	legend: TooltipLegendStyle;
 }
 export interface IndicatorStyle {
 	ohlc: Pick<CandleBarColor, "compareRule" | "upColor" | "downColor" | "noChangeColor">;
@@ -333,7 +346,7 @@ declare function calcTextWidth(text: string, size?: number, weight?: string | nu
  * limitations under the License.
  */
 export type ActionCallback = (data?: unknown) => void;
-export type ActionType = "onZoom" | "onScroll" | "onVisibleRangeChange" | "onCandleTooltipFeatureClick" | "onCrosshairFeatureClick" | "onCrosshairChange" | "onCandleBarClick" | "onPaneDrag";
+export type ActionType = "onZoom" | "onScroll" | "onVisibleRangeChange" | "onCandleTooltipFeatureClick" | "onIndicatorTooltipFeatureClick" | "onCrosshairFeatureClick" | "onCrosshairChange" | "onCandleBarClick" | "onPaneDrag";
 /**
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -443,6 +456,66 @@ export interface Crosshair extends Partial<Coordinate> {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+export interface SymbolInfo {
+	ticker: string;
+	pricePrecision: number;
+	volumePrecision: number;
+	[key: string]: unknown;
+}
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ * http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+export type PeriodType = "second" | "minute" | "hour" | "day" | "week" | "month" | "year";
+export interface Period {
+	type: PeriodType;
+	span: number;
+}
+export type DataLoadType = "init" | "forward" | "backward" | "update";
+export type DataLoadMore = boolean | {
+	backward: boolean;
+	forward: boolean;
+};
+export interface DataLoaderGetBarsParams {
+	type: DataLoadType;
+	timestamp: Nullable<number>;
+	symbol: SymbolInfo;
+	period: Period;
+	callback: (data: KLineData[], more?: DataLoadMore) => void;
+}
+export interface DataLoaderSubscribeBarParams {
+	symbol: SymbolInfo;
+	period: Period;
+	callback: (data: KLineData) => void;
+}
+export type DataLoaderUnsubscribeBarParams = Omit<DataLoaderSubscribeBarParams, "callback">;
+export interface DataLoader {
+	getBars: (params: DataLoaderGetBarsParams) => void | Promise<void>;
+	subscribeBar?: (params: DataLoaderSubscribeBarParams) => void;
+	unsubscribeBar?: (params: DataLoaderUnsubscribeBarParams) => void;
+}
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ * http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 export interface VisibleRange {
 	readonly from: number;
 	readonly to: number;
@@ -473,34 +546,6 @@ export interface Point {
 	timestamp: number;
 	value: number;
 }
-export type LoadDataType = "init" | "forward" | "backward" | "update";
-export interface LoadDataParams {
-	type: LoadDataType;
-	data: Nullable<KLineData>;
-	callback: (dataList: KLineData[], more?: boolean) => void;
-}
-export interface LoadDataMore {
-	backward: boolean;
-	forward: boolean;
-}
-export type LoadDataCallback = (params: LoadDataParams) => void;
-/**
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
-
- * http://www.apache.org/licenses/LICENSE-2.0
-
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-export interface Precision {
-	price: number;
-	volume: number;
-}
 export type PaneState = "normal" | "maximize" | "minimize";
 export interface PaneOptions {
 	id?: string;
@@ -520,7 +565,7 @@ export interface FormatDateParams {
 }
 export type FormatDate = (params: FormatDateParams) => string;
 export type FormatBigNumber = (value: string | number) => string;
-export type ExtendTextType = "lastPrice";
+export type ExtendTextType = "last_price";
 export interface FormatExtendTextParams {
 	type: ExtendTextType;
 	data: KLineData;
@@ -541,6 +586,13 @@ export interface Locales {
 	volume: string;
 	change: string;
 	turnover: string;
+	second: string;
+	minute: string;
+	hour: string;
+	day: string;
+	week: string;
+	month: string;
+	year: string;
 	[key: string]: string;
 }
 export type LayoutChildType = "candle" | "indicator" | "xAxis";
@@ -726,8 +778,10 @@ export interface Store {
 	getThousandsSeparator: () => ThousandsSeparator;
 	setDecimalFold: (decimalFold: Partial<DecimalFold>) => void;
 	getDecimalFold: () => DecimalFold;
-	getPrecision: () => Precision;
-	setPrecision: (precision: Partial<Precision>) => void;
+	setSymbol: (symbol: SymbolInfo) => void;
+	getSymbol: () => Nullable<SymbolInfo>;
+	setPeriod: (period: Period) => void;
+	getPeriod: () => Nullable<Period>;
 	getDataList: () => KLineData[];
 	setOffsetRightDistance: (distance: number) => void;
 	getOffsetRightDistance: () => number;
@@ -738,7 +792,7 @@ export interface Store {
 	setBarSpace: (space: number) => void;
 	getBarSpace: () => BarSpace;
 	getVisibleRange: () => VisibleRange;
-	setLoadMoreDataCallback: (callback: LoadDataCallback) => void;
+	setDataLoader: (dataLoader: DataLoader) => void;
 	overrideIndicator: (override: IndicatorCreate) => boolean;
 	removeIndicator: (filter?: IndicatorFilter) => boolean;
 	overrideOverlay: (override: Partial<OverlayCreate>) => boolean;
@@ -747,7 +801,7 @@ export interface Store {
 	isZoomEnabled: () => boolean;
 	setScrollEnabled: (enabled: boolean) => void;
 	isScrollEnabled: () => boolean;
-	clearData: () => void;
+	resetData: () => void;
 }
 export type DomPosition = "root" | "main" | "yAxis";
 export interface ConvertFilter {
@@ -758,8 +812,6 @@ export interface Chart extends Store {
 	id: string;
 	getDom: (paneId?: string, position?: DomPosition) => Nullable<HTMLElement>;
 	getSize: (paneId?: string, position?: DomPosition) => Nullable<Bounding>;
-	applyNewData: (dataList: KLineData[], more?: boolean | Partial<LoadDataMore>) => void;
-	updateData: (data: KLineData) => void;
 	createIndicator: (value: string | IndicatorCreate, isStack?: boolean, paneOptions?: PaneOptions) => Nullable<string>;
 	getIndicators: (filter?: IndicatorFilter) => Indicator[];
 	createOverlay: (value: string | OverlayCreate | Array<string | OverlayCreate>) => Nullable<string> | Array<Nullable<string>>;
@@ -931,14 +983,6 @@ export interface IndicatorCreateTooltipDataSourceParams<D> {
 	yAxis: YAxis;
 }
 export type IndicatorCreateTooltipDataSourceCallback<D> = (params: IndicatorCreateTooltipDataSourceParams<D>) => IndicatorTooltipData;
-export type IndicatorEventTarget = "feature";
-export interface IndicatorEvent<D, C, E> {
-	target: IndicatorEventTarget;
-	chart: Chart;
-	indicator: Indicator<D, C, E>;
-	[key: string]: unknown;
-}
-export type IndicatorEventCallback<D, C, E> = (params: IndicatorEvent<D, C, E>) => void;
 export interface IndicatorDrawParams<D, C, E> {
 	ctx: CanvasRenderingContext2D;
 	chart: Chart;
@@ -956,7 +1000,7 @@ export type IndicatorShouldUpdateCallback<D, C, E> = (prev: Indicator<D, C, E>, 
 export type IndicatorDataState = "loading" | "error" | "ready";
 export interface IndicatorOnDataStateChangeParams<D> {
 	state: IndicatorDataState;
-	type: LoadDataType;
+	type: DataLoadType;
 	indicator: Indicator<D>;
 }
 export type IndicatorOnDataStateChangeCallback<D> = (params: IndicatorOnDataStateChangeParams<D>) => void;
@@ -1049,10 +1093,6 @@ export interface Indicator<D = unknown, C = unknown, E = unknown> {
 	 * Data state change
 	 */
 	onDataStateChange: Nullable<IndicatorOnDataStateChangeCallback<D>>;
-	/**
-	 * Event
-	 */
-	onClick: Nullable<IndicatorEventCallback<D, C, E>>;
 	/**
 	 * Calculation result
 	 */

@@ -260,6 +260,15 @@ function formatFoldDecimal(value, threshold) {
     }
     return vl;
 }
+function formatTemplateString(template, params) {
+    return template.replace(/\{(\w+)\}/g, function (_, key) {
+        var value = params[key];
+        if (isValid(value)) {
+            return value;
+        }
+        return "{".concat(key, "}");
+    });
+}
 
 /**
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -973,7 +982,10 @@ var Color = {
     GREEN: '#2DC08E',
     WHITE: '#FFFFFF',
     GREY: '#76808F',
-    BLUE: '#1677FF'
+    BLUE: '#1677FF',
+    LIGHTRED: 'hsl(347, 95%, 90%)',
+    LIGHTGREEN: 'hsl(160, 62%, 90%)',
+    LIGHTGREY: 'hsl(216, 10%, 90%)'
 };
 function getDefaultGridStyle() {
     return {
@@ -1020,6 +1032,18 @@ function getDefaultCandleStyle() {
             upWickColor: Color.GREEN,
             downWickColor: Color.RED,
             noChangeWickColor: Color.GREY
+        },
+        fadedBar: {
+            compareRule: 'current_open',
+            upColor: Color.LIGHTGREEN,
+            downColor: Color.LIGHTRED,
+            noChangeColor: Color.LIGHTGREY,
+            upBorderColor: Color.LIGHTGREEN,
+            downBorderColor: Color.LIGHTRED,
+            noChangeBorderColor: Color.LIGHTGREY,
+            upWickColor: Color.LIGHTGREEN,
+            downWickColor: Color.LIGHTRED,
+            noChangeWickColor: Color.LIGHTGREY
         },
         area: {
             lineSize: 2,
@@ -1086,15 +1110,6 @@ function getDefaultCandleStyle() {
             offsetBottom: 6,
             showRule: 'always',
             showType: 'standard',
-            custom: [
-                { title: 'time', value: '{time}' },
-                { title: 'open', value: '{open}' },
-                { title: 'high', value: '{high}' },
-                { title: 'low', value: '{low}' },
-                { title: 'close', value: '{close}' },
-                { title: 'volume', value: '{volume}' }
-            ],
-            defaultValue: 'n/a',
             rect: {
                 position: 'fixed',
                 paddingLeft: 4,
@@ -1110,7 +1125,19 @@ function getDefaultCandleStyle() {
                 borderColor: '#F2F3F5',
                 color: '#FEFEFE'
             },
-            text: {
+            title: {
+                show: true,
+                size: 14,
+                family: 'Helvetica Neue',
+                weight: 'normal',
+                color: Color.GREY,
+                marginLeft: 8,
+                marginTop: 4,
+                marginRight: 8,
+                marginBottom: 4,
+                template: '{ticker} · {period}'
+            },
+            legend: {
                 size: 12,
                 family: 'Helvetica Neue',
                 weight: 'normal',
@@ -1118,7 +1145,16 @@ function getDefaultCandleStyle() {
                 marginLeft: 8,
                 marginTop: 4,
                 marginRight: 8,
-                marginBottom: 4
+                marginBottom: 4,
+                defaultValue: 'n/a',
+                custom: [
+                    { title: 'time', value: '{time}' },
+                    { title: 'open', value: '{open}' },
+                    { title: 'high', value: '{high}' },
+                    { title: 'low', value: '{low}' },
+                    { title: 'close', value: '{close}' },
+                    { title: 'volume', value: '{volume}' }
+                ]
             },
             features: []
         }
@@ -1189,10 +1225,10 @@ function getDefaultIndicatorStyle() {
             offsetBottom: 6,
             showRule: 'always',
             showType: 'standard',
-            showName: true,
-            showParams: true,
-            defaultValue: 'n/a',
-            text: {
+            title: {
+                show: true,
+                showName: true,
+                showParams: true,
                 size: 12,
                 family: 'Helvetica Neue',
                 weight: 'normal',
@@ -1201,6 +1237,17 @@ function getDefaultIndicatorStyle() {
                 marginTop: 4,
                 marginRight: 8,
                 marginBottom: 4
+            },
+            legend: {
+                size: 12,
+                family: 'Helvetica Neue',
+                weight: 'normal',
+                color: Color.GREY,
+                marginLeft: 8,
+                marginTop: 4,
+                marginRight: 8,
+                marginBottom: 4,
+                defaultValue: 'n/a'
             },
             features: []
         }
@@ -1402,111 +1449,6 @@ function getDefaultStyles() {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-var TimeWeightConstants = {
-    Year: 365 * 24 * 3600,
-    Month: 30 * 24 * 3600,
-    Day: 24 * 3600,
-    Hour: 3600,
-    Minute: 60,
-    Second: 1
-};
-function classifyTimeWeightTicks(map, dataList, dateTimeFormat, baseDataIndex, minTimeSpan, startTimestamp) {
-    var _a;
-    if (baseDataIndex === void 0) { baseDataIndex = 0; }
-    var prevDateTime = null;
-    var prevTimestamp = startTimestamp !== null && startTimestamp !== void 0 ? startTimestamp : null;
-    for (var i = 0; i < dataList.length; i++) {
-        var timestamp = dataList[i].timestamp;
-        var weight = TimeWeightConstants.Minute;
-        var dateTime = formatTimestampToDateTime(dateTimeFormat, timestamp);
-        if (isValid(prevDateTime)) {
-            if (dateTime.YYYY !== prevDateTime.YYYY) {
-                weight = TimeWeightConstants.Year;
-            }
-            else if (dateTime.MM !== prevDateTime.MM) {
-                weight = TimeWeightConstants.Month;
-            }
-            else if (dateTime.DD !== prevDateTime.DD) {
-                weight = TimeWeightConstants.Day;
-            }
-            else if (dateTime.HH !== prevDateTime.HH) {
-                weight = TimeWeightConstants.Hour;
-            }
-            else if (dateTime.mm !== prevDateTime.mm) {
-                weight = TimeWeightConstants.Minute;
-            }
-            else {
-                weight = TimeWeightConstants.Second;
-            }
-        }
-        if (isNumber(prevTimestamp) && isNumber(minTimeSpan === null || minTimeSpan === void 0 ? void 0 : minTimeSpan.compare)) {
-            minTimeSpan.compare = Math.min(minTimeSpan.compare, timestamp - prevTimestamp);
-        }
-        var currentTimeWeightList = (_a = map.get(weight)) !== null && _a !== void 0 ? _a : [];
-        currentTimeWeightList.push({ dataIndex: i + baseDataIndex, weight: weight, timestamp: timestamp });
-        map.set(weight, currentTimeWeightList);
-        prevDateTime = dateTime;
-        prevTimestamp = timestamp;
-    }
-}
-function calcBetweenTimeWeightTickBarCount(barSpace, textStyles) {
-    var space = Math.max(calcTextWidth('0000-00-00 00:00:00', textStyles.size, textStyles.weight, textStyles.family), 146);
-    return Math.ceil(space / barSpace);
-}
-function createTimeWeightTickList(map, barSpace, textStyles) {
-    var barCount = calcBetweenTimeWeightTickBarCount(barSpace, textStyles);
-    var optTimeWeightTickList = [];
-    Array.from(map.keys()).sort(function (w1, w2) { return w2 - w1; }).forEach(function (weight) {
-        var currentTimeWeightTickList = map.get(weight);
-        var prevOptTimeWeightTickList = optTimeWeightTickList;
-        optTimeWeightTickList = [];
-        var prevOptTimeWeightTickListLength = prevOptTimeWeightTickList.length;
-        var prevOptTimeWeightTickListPointer = 0;
-        var currentTimeWeightTickListLength = currentTimeWeightTickList.length;
-        var rightIndex = Infinity;
-        var leftIndex = -Infinity;
-        for (var i = 0; i < currentTimeWeightTickListLength; i++) {
-            var timeWeightTick = currentTimeWeightTickList[i];
-            var currentIndex = timeWeightTick.dataIndex;
-            while (prevOptTimeWeightTickListPointer < prevOptTimeWeightTickListLength) {
-                var lastTimeWeightTick = prevOptTimeWeightTickList[prevOptTimeWeightTickListPointer];
-                var lastIndex = lastTimeWeightTick.dataIndex;
-                if (lastIndex < currentIndex) {
-                    prevOptTimeWeightTickListPointer++;
-                    optTimeWeightTickList.push(lastTimeWeightTick);
-                    leftIndex = lastIndex;
-                    rightIndex = Infinity;
-                }
-                else {
-                    rightIndex = lastIndex;
-                    break;
-                }
-            }
-            if (rightIndex - currentIndex >= barCount && currentIndex - leftIndex >= barCount) {
-                optTimeWeightTickList.push(timeWeightTick);
-                leftIndex = currentIndex;
-            }
-        }
-        for (; prevOptTimeWeightTickListPointer < prevOptTimeWeightTickListLength; prevOptTimeWeightTickListPointer++) {
-            optTimeWeightTickList.push(prevOptTimeWeightTickList[prevOptTimeWeightTickListPointer]);
-        }
-    });
-    return optTimeWeightTickList;
-}
-
-/**
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
-
- * http://www.apache.org/licenses/LICENSE-2.0
-
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 function eachFigures(indicator, dataIndex, defaultStyles, eachFigureCallback) {
     var result = indicator.result;
     var figures = indicator.figures;
@@ -1599,7 +1541,6 @@ var IndicatorImp = /** @class */ (function () {
         this.regenerateFigures = null;
         this.createTooltipDataSource = null;
         this.draw = null;
-        this.onClick = null;
         this.onDataStateChange = null;
         this.result = [];
         this._lockSeriesPrecision = false;
@@ -3609,7 +3550,7 @@ var OverlayImp = /** @class */ (function () {
     OverlayImp.prototype.shouldUpdate = function () {
         var sort = this._prevOverlay.zLevel !== this.zLevel;
         var draw = sort ||
-            JSON.stringify(this._prevOverlay) !== JSON.stringify(this.points) ||
+            JSON.stringify(this._prevOverlay.points) !== JSON.stringify(this.points) ||
             this._prevOverlay.visible !== this.visible ||
             this._prevOverlay.extendData !== this.extendData ||
             this._prevOverlay.styles !== this.styles;
@@ -3732,13 +3673,13 @@ var fibonacciLine = {
     needDefaultXAxisFigure: true,
     needDefaultYAxisFigure: true,
     createPointFigures: function (_a) {
-        var _b;
+        var _b, _c, _d;
         var chart = _a.chart, coordinates = _a.coordinates, bounding = _a.bounding, overlay = _a.overlay, yAxis = _a.yAxis;
         var points = overlay.points;
         if (coordinates.length > 0) {
             var precision_1 = 0;
             if ((_b = yAxis === null || yAxis === void 0 ? void 0 : yAxis.isInCandle()) !== null && _b !== void 0 ? _b : true) {
-                precision_1 = chart.getPrecision().price;
+                precision_1 = (_d = (_c = chart.getSymbol()) === null || _c === void 0 ? void 0 : _c.pricePrecision) !== null && _d !== void 0 ? _d : 2;
             }
             else {
                 var indicators = chart.getIndicators({ paneId: overlay.paneId });
@@ -4327,11 +4268,11 @@ var priceLine = {
     needDefaultXAxisFigure: true,
     needDefaultYAxisFigure: true,
     createPointFigures: function (_a) {
-        var _b;
+        var _b, _c, _d;
         var chart = _a.chart, coordinates = _a.coordinates, bounding = _a.bounding, overlay = _a.overlay, yAxis = _a.yAxis;
         var precision = 0;
         if ((_b = yAxis === null || yAxis === void 0 ? void 0 : yAxis.isInCandle()) !== null && _b !== void 0 ? _b : true) {
-            precision = chart.getPrecision().price;
+            precision = (_d = (_c = chart.getSymbol()) === null || _c === void 0 ? void 0 : _c.pricePrecision) !== null && _d !== void 0 ? _d : 2;
         }
         else {
             var indicators = chart.getIndicators({ paneId: overlay.paneId });
@@ -4339,7 +4280,7 @@ var priceLine = {
                 precision = Math.max(precision, indicator.precision);
             });
         }
-        var _c = (overlay.points)[0].value, value = _c === void 0 ? 0 : _c;
+        var _e = (overlay.points)[0].value, value = _e === void 0 ? 0 : _e;
         return [
             {
                 type: 'line',
@@ -4742,7 +4683,7 @@ var simpleTag = {
         });
     },
     createYAxisFigures: function (_a) {
-        var _b, _c;
+        var _b, _c, _d, _e;
         var chart = _a.chart, overlay = _a.overlay, coordinates = _a.coordinates, bounding = _a.bounding, yAxis = _a.yAxis;
         var isFromZero = (_b = yAxis === null || yAxis === void 0 ? void 0 : yAxis.isFromZero()) !== null && _b !== void 0 ? _b : false;
         var textAlign = 'left';
@@ -4765,7 +4706,7 @@ var simpleTag = {
             }
         }
         if (!isValid(text) && isNumber(overlay.points[0].value)) {
-            text = formatPrecision(overlay.points[0].value, chart.getPrecision().price);
+            text = formatPrecision(overlay.points[0].value, (_e = (_d = chart.getSymbol()) === null || _d === void 0 ? void 0 : _d.pricePrecision) !== null && _e !== void 0 ? _e : 2);
         }
         return { type: 'text', attrs: { x: x, y: coordinates[0].y, text: text, align: textAlign, baseline: 'middle' } };
     }
@@ -4845,14 +4786,20 @@ var light = {
                 color: '#FEFEFE',
                 borderColor: '#F2F3F5'
             },
-            text: {
+            title: {
+                color: '#76808F'
+            },
+            legend: {
                 color: '#76808F'
             }
         }
     },
     indicator: {
         tooltip: {
-            text: {
+            title: {
+                color: '#76808F'
+            },
+            legend: {
                 color: '#76808F'
             }
         }
@@ -4940,14 +4887,20 @@ var dark = {
                 color: 'rgba(10, 10, 10, .6)',
                 borderColor: 'rgba(10, 10, 10, .6)'
             },
-            text: {
+            title: {
+                color: '#929AA5'
+            },
+            legend: {
                 color: '#929AA5'
             }
         }
     },
     indicator: {
         tooltip: {
-            text: {
+            title: {
+                color: '#929AA5'
+            },
+            legend: {
                 color: '#929AA5'
             }
         }
@@ -5066,7 +5019,6 @@ var DEFAULT_BAR_SPACE = 10;
 var DEFAULT_OFFSET_RIGHT_DISTANCE = 80;
 var BAR_GAP_RATIO = 0.2;
 var SCALE_MULTIPLIER = 10;
-var DEFAULT_MIN_TIME_SPAN = 15 * 60 * 1000;
 var StoreImp = /** @class */ (function () {
     function StoreImp(chart, options) {
         var _this = this;
@@ -5113,9 +5065,13 @@ var StoreImp = /** @class */ (function () {
             format: function (value) { return formatFoldDecimal(value, _this._decimalFold.threshold); }
         };
         /**
-         * Price and volume precision
+         * Symbol
          */
-        this._precision = { price: 2, volume: 0 };
+        this._symbol = null;
+        /**
+         * Period
+         */
+        this._period = null;
         /**
          * Data source
          */
@@ -5123,15 +5079,15 @@ var StoreImp = /** @class */ (function () {
         /**
          * Load more data callback
          */
-        this._loadMoreDataCallback = null;
+        this._dataLoader = null;
         /**
          * Is loading data flag
          */
-        this._loading = true;
+        this._loading = false;
         /**
         * Whether there are forward and backward more flag
          */
-        this._loadDataMore = { forward: false, backward: false };
+        this._dataLoadMore = { forward: false, backward: false };
         /**
          * Scale enabled flag
          */
@@ -5172,9 +5128,6 @@ var StoreImp = /** @class */ (function () {
          * Start and end points of visible area data index
          */
         this._visibleRange = getDefaultVisibleRange();
-        this._timeWeightTickMap = new Map();
-        this._timeWeightTickList = [];
-        this._minTimeSpan = { compare: Number.MAX_SAFE_INTEGER, calc: DEFAULT_MIN_TIME_SPAN };
         /**
          * Visible data array
          */
@@ -5264,7 +5217,7 @@ var StoreImp = /** @class */ (function () {
     }
     StoreImp.prototype.setStyles = function (value) {
         var _this = this;
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c, _d, _e, _f;
         var styles = null;
         if (isString(value)) {
             styles = getStyles(value);
@@ -5274,10 +5227,10 @@ var StoreImp = /** @class */ (function () {
         }
         merge(this._styles, styles);
         // `candle.tooltip.custom` should override
-        if (isArray((_b = (_a = styles === null || styles === void 0 ? void 0 : styles.candle) === null || _a === void 0 ? void 0 : _a.tooltip) === null || _b === void 0 ? void 0 : _b.custom)) {
-            this._styles.candle.tooltip.custom = styles.candle.tooltip.custom;
+        if (isArray((_c = (_b = (_a = styles === null || styles === void 0 ? void 0 : styles.candle) === null || _a === void 0 ? void 0 : _a.tooltip) === null || _b === void 0 ? void 0 : _b.legend) === null || _c === void 0 ? void 0 : _c.custom)) {
+            this._styles.candle.tooltip.legend.custom = styles.candle.tooltip.legend.custom;
         }
-        if (isValid((_e = (_d = (_c = styles === null || styles === void 0 ? void 0 : styles.candle) === null || _c === void 0 ? void 0 : _c.priceMark) === null || _d === void 0 ? void 0 : _d.last) === null || _e === void 0 ? void 0 : _e.extendTexts)) {
+        if (isValid((_f = (_e = (_d = styles === null || styles === void 0 ? void 0 : styles.candle) === null || _d === void 0 ? void 0 : _d.priceMark) === null || _e === void 0 ? void 0 : _e.last) === null || _f === void 0 ? void 0 : _f.extendTexts)) {
             this._clearLastPriceMarkExtendTextUpdateTimer();
             var intervals_1 = [];
             this._styles.candle.priceMark.last.extendTexts.forEach(function (item) {
@@ -5325,7 +5278,6 @@ var StoreImp = /** @class */ (function () {
                 logWarn('', '', 'Timezone is error!!!');
             }
             if (dateTimeFormat !== null) {
-                this._classifyTimeWeightTicks(this._dataList);
                 this._dateTimeFormat = dateTimeFormat;
             }
         }
@@ -5340,12 +5292,22 @@ var StoreImp = /** @class */ (function () {
     StoreImp.prototype.getThousandsSeparator = function () { return this._thousandsSeparator; };
     StoreImp.prototype.setDecimalFold = function (decimalFold) { merge(this._decimalFold, decimalFold); };
     StoreImp.prototype.getDecimalFold = function () { return this._decimalFold; };
-    StoreImp.prototype.getPrecision = function () {
-        return this._precision;
-    };
-    StoreImp.prototype.setPrecision = function (precision) {
-        merge(this._precision, precision);
+    StoreImp.prototype.setSymbol = function (symbol) {
+        this._processDataUnsubscribe();
+        this._symbol = symbol;
         this._synchronizeIndicatorSeriesPrecision();
+        this.resetData();
+    };
+    StoreImp.prototype.getSymbol = function () {
+        return this._symbol;
+    };
+    StoreImp.prototype.setPeriod = function (period) {
+        this._processDataUnsubscribe();
+        this._period = period;
+        this.resetData();
+    };
+    StoreImp.prototype.getPeriod = function () {
+        return this._period;
     };
     StoreImp.prototype.getDataList = function () {
         return this._dataList;
@@ -5356,41 +5318,46 @@ var StoreImp = /** @class */ (function () {
     StoreImp.prototype.getVisibleRangeHighLowPrice = function () {
         return this._visibleRangeHighLowPrice;
     };
-    StoreImp.prototype.addData = function (data, type, more) {
+    StoreImp.prototype._addData = function (data, type, more) {
         var _this = this;
-        var _a, _b, _c, _d;
+        var _a, _b;
         var success = false;
         var adjustFlag = false;
         var dataLengthChange = 0;
         if (isArray(data)) {
+            var realMore = { backward: false, forward: false };
+            if (isBoolean(more)) {
+                realMore.backward = more;
+                realMore.forward = more;
+            }
+            else {
+                realMore.backward = (_a = more === null || more === void 0 ? void 0 : more.backward) !== null && _a !== void 0 ? _a : false;
+                realMore.forward = (_b = more === null || more === void 0 ? void 0 : more.forward) !== null && _b !== void 0 ? _b : false;
+            }
             dataLengthChange = data.length;
             switch (type) {
                 case 'init': {
-                    this.clearData();
+                    this._clearData();
                     this._dataList = data;
-                    this._loadDataMore.backward = (_a = more === null || more === void 0 ? void 0 : more.backward) !== null && _a !== void 0 ? _a : false;
-                    this._loadDataMore.forward = (_b = more === null || more === void 0 ? void 0 : more.forward) !== null && _b !== void 0 ? _b : false;
-                    this._classifyTimeWeightTicks(this._dataList);
+                    this._dataLoadMore.backward = realMore.backward;
+                    this._dataLoadMore.forward = realMore.forward;
                     this.setOffsetRightDistance(this._offsetRightDistance);
                     adjustFlag = true;
                     break;
                 }
                 case 'backward': {
-                    this._classifyTimeWeightTicks(data, true);
                     this._dataList = this._dataList.concat(data);
-                    this._loadDataMore.backward = (_c = more === null || more === void 0 ? void 0 : more.backward) !== null && _c !== void 0 ? _c : false;
+                    this._dataLoadMore.backward = realMore.backward;
                     adjustFlag = dataLengthChange > 0;
                     break;
                 }
                 case 'forward': {
                     this._dataList = data.concat(this._dataList);
-                    this._classifyTimeWeightTicks(this._dataList);
-                    this._loadDataMore.forward = (_d = more === null || more === void 0 ? void 0 : more.forward) !== null && _d !== void 0 ? _d : false;
+                    this._dataLoadMore.forward = realMore.forward;
                     adjustFlag = dataLengthChange > 0;
                     break;
                 }
             }
-            this._loading = false;
             success = true;
         }
         else {
@@ -5399,7 +5366,6 @@ var StoreImp = /** @class */ (function () {
             var timestamp = data.timestamp;
             var lastDataTimestamp = formatValue(this._dataList[dataCount - 1], 'timestamp', 0);
             if (timestamp > lastDataTimestamp) {
-                this._classifyTimeWeightTicks([data], true);
                 this._dataList.push(data);
                 var lastBarRightSideDiffBarCount = this.getLastBarRightSideDiffBarCount();
                 if (lastBarRightSideDiffBarCount < 0) {
@@ -5426,13 +5392,15 @@ var StoreImp = /** @class */ (function () {
                 this._chart.layout({
                     measureWidth: true,
                     update: true,
-                    buildYAxisTick: true
+                    buildYAxisTick: true,
+                    cacheYAxisWidth: type !== 'init'
                 });
             }
         }
     };
-    StoreImp.prototype.setLoadMoreDataCallback = function (callback) {
-        this._loadMoreDataCallback = callback;
+    StoreImp.prototype.setDataLoader = function (dataLoader) {
+        this._dataLoader = dataLoader;
+        this.resetData();
     };
     StoreImp.prototype._calcOptimalBarSpace = function () {
         var specialBarSpace = 4;
@@ -5443,29 +5411,8 @@ var StoreImp = /** @class */ (function () {
         }
         this._gapBarSpace = Math.max(1, gapBarSpace);
     };
-    StoreImp.prototype._classifyTimeWeightTicks = function (newDataList, isUpdate) {
-        var baseDataIndex = 0;
-        var prevTimestamp = null;
-        if (isUpdate !== null && isUpdate !== void 0 ? isUpdate : false) {
-            baseDataIndex = this._dataList.length;
-            prevTimestamp = this._dataList[baseDataIndex - 1].timestamp;
-        }
-        else {
-            this._timeWeightTickMap.clear();
-            this._minTimeSpan = { compare: Number.MAX_SAFE_INTEGER, calc: DEFAULT_MIN_TIME_SPAN };
-        }
-        classifyTimeWeightTicks(this._timeWeightTickMap, newDataList, this._dateTimeFormat, baseDataIndex, this._minTimeSpan, prevTimestamp);
-        if (this._minTimeSpan.compare !== Number.MAX_SAFE_INTEGER) {
-            this._minTimeSpan.calc = this._minTimeSpan.compare;
-        }
-        this._timeWeightTickList = createTimeWeightTickList(this._timeWeightTickMap, this._barSpace, this._styles.xAxis.tickText);
-    };
-    StoreImp.prototype.getTimeWeightTickList = function () {
-        return this._timeWeightTickList;
-    };
     StoreImp.prototype._adjustVisibleRange = function () {
-        var _this = this;
-        var _a, _b, _c, _d;
+        var _a, _b;
         var totalBarCount = this._dataList.length;
         var visibleBarCount = this._totalBarSpace / this._barSpace;
         var leftMinVisibleBarCount = 0;
@@ -5529,36 +5476,69 @@ var StoreImp = /** @class */ (function () {
             }
         }
         // More processing and loading, more loading if there are callback methods and no data is being loaded
-        if (!this._loading && isValid(this._loadMoreDataCallback)) {
-            var params = null;
+        if (!this._loading && isValid(this._dataLoader) && isValid(this._symbol) && isValid(this._period)) {
             if (from === 0) {
-                if (this._loadDataMore.forward) {
-                    this._loading = true;
-                    params = {
-                        type: 'forward',
-                        data: (_c = this._dataList[0]) !== null && _c !== void 0 ? _c : null,
-                        callback: function (data, more) {
-                            _this.addData(data, 'forward', { forward: more !== null && more !== void 0 ? more : false, backward: more !== null && more !== void 0 ? more : false });
-                        }
-                    };
+                if (this._dataLoadMore.forward) {
+                    this._processDataLoad('forward');
                 }
             }
             else if (to === totalBarCount) {
-                if (this._loadDataMore.backward) {
-                    this._loading = true;
-                    params = {
-                        type: 'backward',
-                        data: (_d = this._dataList[totalBarCount - 1]) !== null && _d !== void 0 ? _d : null,
-                        callback: function (data, more) {
-                            _this.addData(data, 'backward', { forward: more !== null && more !== void 0 ? more : false, backward: more !== null && more !== void 0 ? more : false });
-                        }
-                    };
+                if (this._dataLoadMore.backward) {
+                    this._processDataLoad('backward');
                 }
             }
-            if (isValid(params)) {
-                this._loadMoreDataCallback(params);
-            }
         }
+    };
+    StoreImp.prototype._processDataLoad = function (type) {
+        var _this = this;
+        var _a, _b, _c, _d;
+        if (!this._loading && isValid(this._dataLoader) && isValid(this._symbol) && isValid(this._period)) {
+            this._loading = true;
+            var params = {
+                type: type,
+                symbol: this._symbol,
+                period: this._period,
+                timestamp: null,
+                callback: function (data, more) {
+                    var _a, _b;
+                    _this._loading = false;
+                    _this._addData(data, type, more);
+                    if (type === 'init') {
+                        (_b = (_a = _this._dataLoader) === null || _a === void 0 ? void 0 : _a.subscribeBar) === null || _b === void 0 ? void 0 : _b.call(_a, {
+                            symbol: _this._symbol,
+                            period: _this._period,
+                            callback: function (data) {
+                                _this._addData(data, 'update');
+                            }
+                        });
+                    }
+                }
+            };
+            switch (type) {
+                case 'backward': {
+                    params.timestamp = (_b = (_a = this._dataList[this._dataList.length - 1]) === null || _a === void 0 ? void 0 : _a.timestamp) !== null && _b !== void 0 ? _b : null;
+                    break;
+                }
+                case 'forward': {
+                    params.timestamp = (_d = (_c = this._dataList[0]) === null || _c === void 0 ? void 0 : _c.timestamp) !== null && _d !== void 0 ? _d : null;
+                    break;
+                }
+            }
+            void this._dataLoader.getBars(params);
+        }
+    };
+    StoreImp.prototype._processDataUnsubscribe = function () {
+        var _a, _b;
+        if (isValid(this._dataLoader) && isValid(this._symbol) && isValid(this._period)) {
+            (_b = (_a = this._dataLoader).unsubscribeBar) === null || _b === void 0 ? void 0 : _b.call(_a, {
+                symbol: this._symbol,
+                period: this._period
+            });
+        }
+    };
+    StoreImp.prototype.resetData = function () {
+        this._loading = false;
+        this._processDataLoad('init');
     };
     StoreImp.prototype.getBarSpace = function () {
         return {
@@ -5573,7 +5553,6 @@ var StoreImp = /** @class */ (function () {
             return;
         }
         this._barSpace = barSpace;
-        this._timeWeightTickList = createTimeWeightTickList(this._timeWeightTickMap, this._barSpace, this._styles.xAxis.tickText);
         this._calcOptimalBarSpace();
         adjustBeforeFunc === null || adjustBeforeFunc === void 0 ? void 0 : adjustBeforeFunc();
         this._adjustVisibleRange();
@@ -5581,7 +5560,8 @@ var StoreImp = /** @class */ (function () {
         this._chart.layout({
             measureWidth: true,
             update: true,
-            buildYAxisTick: true
+            buildYAxisTick: true,
+            cacheYAxisWidth: true
         });
     };
     StoreImp.prototype.setTotalBarSpace = function (totalSpace) {
@@ -5600,7 +5580,8 @@ var StoreImp = /** @class */ (function () {
             this._chart.layout({
                 measureWidth: true,
                 update: true,
-                buildYAxisTick: true
+                buildYAxisTick: true,
+                cacheYAxisWidth: true
             });
         }
         return this;
@@ -5651,7 +5632,8 @@ var StoreImp = /** @class */ (function () {
         this._chart.layout({
             measureWidth: true,
             update: true,
-            buildYAxisTick: true
+            buildYAxisTick: true,
+            cacheYAxisWidth: true
         });
         var realDistance = Math.round(prevLastBarRightSideDistance - this._lastBarRightSideDiffBarCount * this._barSpace);
         if (realDistance !== 0) {
@@ -5677,12 +5659,52 @@ var StoreImp = /** @class */ (function () {
         if (isValid(data)) {
             return data.timestamp;
         }
-        var lastIndex = length - 1;
-        if (dataIndex > lastIndex) {
-            return this._dataList[lastIndex].timestamp + this._minTimeSpan.calc * (dataIndex - lastIndex);
-        }
-        if (dataIndex < 0) {
-            return this._dataList[0].timestamp - this._minTimeSpan.calc * Math.abs(dataIndex);
+        if (isValid(this._period)) {
+            var lastIndex = length - 1;
+            var referenceTimestamp = null;
+            var diff = 0;
+            if (dataIndex > lastIndex) {
+                referenceTimestamp = this._dataList[lastIndex].timestamp;
+                diff = dataIndex - lastIndex;
+            }
+            else if (dataIndex < 0) {
+                referenceTimestamp = this._dataList[0].timestamp;
+                diff = dataIndex;
+            }
+            if (isNumber(referenceTimestamp)) {
+                var _a = this._period, type = _a.type, span = _a.span;
+                switch (type) {
+                    case 'second': {
+                        return referenceTimestamp + span * 1000 * diff;
+                    }
+                    case 'minute': {
+                        return referenceTimestamp + span * 60 * 1000 * diff;
+                    }
+                    case 'hour': {
+                        return referenceTimestamp + span * 60 * 60 * 1000 * diff;
+                    }
+                    case 'day': {
+                        return referenceTimestamp + span * 24 * 60 * 60 * 1000 * diff;
+                    }
+                    case 'week': {
+                        return referenceTimestamp + span * 7 * 24 * 60 * 60 * 1000 * diff;
+                    }
+                    case 'month': {
+                        var date = new Date(referenceTimestamp);
+                        var originalDay = date.getDate();
+                        var targetMonth = date.getMonth() + span * diff;
+                        date.setMonth(targetMonth);
+                        var lastDayOfTargetMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+                        date.setDate(Math.min(originalDay, lastDayOfTargetMonth));
+                        return date.getTime();
+                    }
+                    case 'year': {
+                        var date = new Date(referenceTimestamp);
+                        date.setFullYear(date.getFullYear() + span * diff);
+                        return date.getTime();
+                    }
+                }
+            }
         }
         return null;
     };
@@ -5691,14 +5713,54 @@ var StoreImp = /** @class */ (function () {
         if (length === 0) {
             return 0;
         }
-        var lastIndex = length - 1;
-        var lastTimestamp = this._dataList[lastIndex].timestamp;
-        if (timestamp > lastTimestamp) {
-            return lastIndex + Math.floor((timestamp - lastTimestamp) / this._minTimeSpan.calc);
-        }
-        var firstTimestamp = this._dataList[0].timestamp;
-        if (timestamp < firstTimestamp) {
-            return Math.floor((timestamp - firstTimestamp) / this._minTimeSpan.calc);
+        if (isValid(this._period)) {
+            var referenceTimestamp = null;
+            var baseDataIndex = 0;
+            var lastIndex = length - 1;
+            var lastTimestamp = this._dataList[lastIndex].timestamp;
+            if (timestamp > lastTimestamp) {
+                referenceTimestamp = lastTimestamp;
+                baseDataIndex = lastIndex;
+            }
+            var firstTimestamp = this._dataList[0].timestamp;
+            if (timestamp < firstTimestamp) {
+                referenceTimestamp = firstTimestamp;
+                baseDataIndex = 0;
+            }
+            if (isNumber(referenceTimestamp)) {
+                var _a = this._period, type = _a.type, span = _a.span;
+                switch (type) {
+                    case 'second': {
+                        return baseDataIndex + Math.floor((timestamp - referenceTimestamp) / (span * 1000));
+                    }
+                    case 'minute': {
+                        return baseDataIndex + Math.floor((timestamp - referenceTimestamp) / (span * 60 * 1000));
+                    }
+                    case 'hour': {
+                        return baseDataIndex + Math.floor((timestamp - referenceTimestamp) / (span * 60 * 60 * 1000));
+                    }
+                    case 'day': {
+                        return baseDataIndex + Math.floor((timestamp - referenceTimestamp) / (span * 24 * 60 * 60 * 1000));
+                    }
+                    case 'week': {
+                        return baseDataIndex + Math.floor((timestamp - referenceTimestamp) / (span * 7 * 24 * 60 * 60 * 1000));
+                    }
+                    case 'month': {
+                        var referenceDate = new Date(referenceTimestamp);
+                        var currentDate = new Date(timestamp);
+                        var referenceYear = referenceDate.getFullYear();
+                        var currentYear = currentDate.getFullYear();
+                        var referenceMonth = referenceDate.getMonth();
+                        var currentMonth = currentDate.getMonth();
+                        return baseDataIndex + Math.floor((currentYear - referenceYear) * 12 + (currentMonth - referenceMonth) / span);
+                    }
+                    case 'year': {
+                        var referenceYear = new Date(referenceTimestamp).getFullYear();
+                        var currentYear = new Date(timestamp).getFullYear();
+                        return baseDataIndex + Math.floor((currentYear - referenceYear) / span);
+                    }
+                }
+            }
         }
         return binarySearchNearest(this._dataList, 'timestamp', timestamp);
     };
@@ -5782,10 +5844,6 @@ var StoreImp = /** @class */ (function () {
             }
         }
     };
-    /**
-     * 获取crosshair信息
-     * @returns
-     */
     StoreImp.prototype.getCrosshair = function () {
         return this._crosshair;
     };
@@ -5824,7 +5882,7 @@ var StoreImp = /** @class */ (function () {
             });
         }
     };
-    StoreImp.prototype._addIndicatorCalcTask = function (indicator, loadDataType) {
+    StoreImp.prototype._addIndicatorCalcTask = function (indicator, dataLoadType) {
         var _this = this;
         this._taskScheduler.addTask({
             id: generateTaskId(indicator.id),
@@ -5832,7 +5890,7 @@ var StoreImp = /** @class */ (function () {
                 var _a;
                 (_a = indicator.onDataStateChange) === null || _a === void 0 ? void 0 : _a.call(indicator, {
                     state: 'loading',
-                    type: loadDataType,
+                    type: dataLoadType,
                     indicator: indicator
                 });
                 indicator.calcImp(_this._dataList).then(function (result) {
@@ -5841,11 +5899,12 @@ var StoreImp = /** @class */ (function () {
                         _this._chart.layout({
                             measureWidth: true,
                             update: true,
-                            buildYAxisTick: true
+                            buildYAxisTick: true,
+                            cacheYAxisWidth: dataLoadType !== 'init'
                         });
                         (_a = indicator.onDataStateChange) === null || _a === void 0 ? void 0 : _a.call(indicator, {
                             state: 'ready',
-                            type: loadDataType,
+                            type: dataLoadType,
                             indicator: indicator
                         });
                     }
@@ -5853,7 +5912,7 @@ var StoreImp = /** @class */ (function () {
                     var _a;
                     (_a = indicator.onDataStateChange) === null || _a === void 0 ? void 0 : _a.call(indicator, {
                         state: 'error',
-                        type: loadDataType,
+                        type: dataLoadType,
                         indicator: indicator
                     });
                 });
@@ -5927,28 +5986,30 @@ var StoreImp = /** @class */ (function () {
         return this._indicators.has(paneId);
     };
     StoreImp.prototype._synchronizeIndicatorSeriesPrecision = function (indicator) {
-        var _a = this._precision, pricePrecision = _a.price, volumePrecision = _a.volume;
-        var synchronize = function (indicator) {
-            switch (indicator.series) {
-                case 'price': {
-                    indicator.setSeriesPrecision(pricePrecision);
-                    break;
+        if (isValid(this._symbol)) {
+            var _a = this._symbol, _b = _a.pricePrecision, pricePrecision_1 = _b === void 0 ? 2 : _b, _c = _a.volumePrecision, volumePrecision_1 = _c === void 0 ? 0 : _c;
+            var synchronize_1 = function (indicator) {
+                switch (indicator.series) {
+                    case 'price': {
+                        indicator.setSeriesPrecision(pricePrecision_1);
+                        break;
+                    }
+                    case 'volume': {
+                        indicator.setSeriesPrecision(volumePrecision_1);
+                        break;
+                    }
                 }
-                case 'volume': {
-                    indicator.setSeriesPrecision(volumePrecision);
-                    break;
-                }
+            };
+            if (isValid(indicator)) {
+                synchronize_1(indicator);
             }
-        };
-        if (isValid(indicator)) {
-            synchronize(indicator);
-        }
-        else {
-            this._indicators.forEach(function (paneIndicators) {
-                paneIndicators.forEach(function (indicator) {
-                    synchronize(indicator);
+            else {
+                this._indicators.forEach(function (paneIndicators) {
+                    paneIndicators.forEach(function (indicator) {
+                        synchronize_1(indicator);
+                    });
                 });
-            });
+            }
         }
     };
     StoreImp.prototype.overrideIndicator = function (override) {
@@ -6043,7 +6104,8 @@ var StoreImp = /** @class */ (function () {
                 var findOverlay = null;
                 try {
                     for (var _h = __values(_this._overlays), _j = _h.next(); !_j.done; _j = _h.next()) {
-                        var _k = __read(_j.value, 2), overlays = _k[1];
+                        var item = _j.value;
+                        var overlays = item[1];
                         var overlay = overlays.find(function (o) { return o.id === create.id; });
                         if (isValid(overlay)) {
                             findOverlay = overlay;
@@ -6269,10 +6331,10 @@ var StoreImp = /** @class */ (function () {
         });
         this._lastPriceMarkExtendTextUpdateTimers = [];
     };
-    StoreImp.prototype.clearData = function () {
-        this._loadDataMore.backward = false;
-        this._loadDataMore.forward = false;
-        this._loading = true;
+    StoreImp.prototype._clearData = function () {
+        this._dataLoadMore.backward = false;
+        this._dataLoadMore.forward = false;
+        this._loading = false;
         this._dataList = [];
         this._visibleRangeDataList = [];
         this._visibleRangeHighLowPrice = [
@@ -6280,15 +6342,13 @@ var StoreImp = /** @class */ (function () {
             { x: 0, price: Number.MAX_SAFE_INTEGER }
         ];
         this._visibleRange = getDefaultVisibleRange();
-        this._timeWeightTickMap.clear();
-        this._timeWeightTickList = [];
         this._crosshair = {};
     };
     StoreImp.prototype.getChart = function () {
         return this._chart;
     };
     StoreImp.prototype.destroy = function () {
-        this.clearData();
+        this._clearData();
         this._clearLastPriceMarkExtendTextUpdateTimer();
         this._taskScheduler.removeTask();
         this._overlays.clear();
@@ -7535,7 +7595,7 @@ var CandleBarView = /** @class */ (function (_super) {
         var chartStore = pane.getChart().getChartStore();
         var candleBarOptions = this.getCandleBarOptions();
         if (candleBarOptions !== null) {
-            var type_1 = candleBarOptions.type, styles_1 = candleBarOptions.styles;
+            var type_1 = candleBarOptions.type, styles_1 = candleBarOptions.styles, fadedStyles_1 = candleBarOptions.fadedStyles;
             var ohlcSize_1 = 0;
             var halfOhlcSize_1 = 0;
             if (candleBarOptions.type === 'ohlc') {
@@ -7551,23 +7611,24 @@ var CandleBarView = /** @class */ (function (_super) {
                 var _a;
                 var x = visibleData.x, _b = visibleData.data, current = _b.current, prev = _b.prev;
                 if (isValid(current)) {
-                    var open_1 = current.open, high = current.high, low = current.low, close_1 = current.close;
+                    var open_1 = current.open, high = current.high, low = current.low, close_1 = current.close, faded = current.faded;
                     var comparePrice = styles_1.compareRule === 'current_open' ? open_1 : ((_a = prev === null || prev === void 0 ? void 0 : prev.close) !== null && _a !== void 0 ? _a : close_1);
                     var colors = [];
+                    var currentStyle = (undefined !== faded && undefined !== fadedStyles_1) ? fadedStyles_1 : styles_1;
                     if (close_1 > comparePrice) {
-                        colors[0] = styles_1.upColor;
-                        colors[1] = styles_1.upBorderColor;
-                        colors[2] = styles_1.upWickColor;
+                        colors[0] = currentStyle.upColor;
+                        colors[1] = currentStyle.upBorderColor;
+                        colors[2] = currentStyle.upWickColor;
                     }
                     else if (close_1 < comparePrice) {
-                        colors[0] = styles_1.downColor;
-                        colors[1] = styles_1.downBorderColor;
-                        colors[2] = styles_1.downWickColor;
+                        colors[0] = currentStyle.downColor;
+                        colors[1] = currentStyle.downBorderColor;
+                        colors[2] = currentStyle.downWickColor;
                     }
                     else {
-                        colors[0] = styles_1.noChangeColor;
-                        colors[1] = styles_1.noChangeBorderColor;
-                        colors[2] = styles_1.noChangeWickColor;
+                        colors[0] = currentStyle.noChangeColor;
+                        colors[1] = currentStyle.noChangeBorderColor;
+                        colors[2] = currentStyle.noChangeWickColor;
                     }
                     var openY = yAxis_1.convertToPixel(open_1);
                     var closeY = yAxis_1.convertToPixel(close_1);
@@ -7654,7 +7715,8 @@ var CandleBarView = /** @class */ (function (_super) {
         var candleStyles = this.getWidget().getPane().getChart().getStyles().candle;
         return {
             type: candleStyles.type,
-            styles: candleStyles.bar
+            styles: candleStyles.bar,
+            fadedStyles: candleStyles.fadedBar
         };
     };
     CandleBarView.prototype._createSolidBar = function (x, priceY, barSpace, colors, correction) {
@@ -8051,16 +8113,9 @@ var IndicatorTooltipView = /** @class */ (function (_super) {
     function IndicatorTooltipView(widget) {
         var _this = _super.call(this, widget) || this;
         _this._activeFeatureInfo = null;
-        _this._featureClickEvent = function (featureInfo) { return function () {
-            var _a;
+        _this._featureClickEvent = function (type, featureInfo) { return function () {
             var pane = _this.getWidget().getPane();
-            var indicator = featureInfo.indicator, others = __rest(featureInfo, ["indicator"]);
-            if (isValid(indicator)) {
-                (_a = indicator.onClick) === null || _a === void 0 ? void 0 : _a.call(indicator, __assign({ target: 'feature', chart: pane.getChart(), indicator: indicator }, others));
-            }
-            else {
-                pane.getChart().getChartStore().executeAction('onCandleTooltipFeatureClick', featureInfo);
-            }
+            pane.getChart().getChartStore().executeAction(type, featureInfo);
             return true;
         }; };
         _this._featureMouseMoveEvent = function (featureInfo) { return function () {
@@ -8092,34 +8147,36 @@ var IndicatorTooltipView = /** @class */ (function (_super) {
         var tooltipStyles = styles.tooltip;
         if (this.isDrawTooltip(chartStore.getCrosshair(), tooltipStyles)) {
             var indicators = chartStore.getIndicatorsByPaneId(pane.getId());
-            var tooltipTextStyles_1 = tooltipStyles.text;
+            var tooltipTitleStyles_1 = tooltipStyles.title;
+            var tooltipLegendStyles_1 = tooltipStyles.legend;
             indicators.forEach(function (indicator) {
                 var prevRowHeight = 0;
                 var coordinate = { x: left, y: top };
-                var _a = _this.getIndicatorTooltipData(indicator), name = _a.name, calcParamsText = _a.calcParamsText, legends = _a.legends, features = _a.features;
+                var _a = _this.getIndicatorTooltipData(indicator), name = _a.name, calcParamsText = _a.calcParamsText, legends = _a.legends, featuresStyles = _a.features;
                 var nameValid = name.length > 0;
                 var legendValid = legends.length > 0;
                 if (nameValid || legendValid) {
-                    var _b = __read(_this.classifyTooltipFeatures(features), 3), leftFeatures = _b[0], middleFeatures = _b[1], rightFeatures = _b[2];
-                    prevRowHeight = _this.drawStandardTooltipFeatures(ctx, leftFeatures, coordinate, indicator, left, prevRowHeight, maxWidth);
+                    var features = _this.classifyTooltipFeatures(featuresStyles);
+                    prevRowHeight = _this.drawStandardTooltipFeatures(ctx, features[0], coordinate, indicator, left, prevRowHeight, maxWidth);
                     if (nameValid) {
                         var text = name;
                         if (calcParamsText.length > 0) {
                             text = "".concat(text).concat(calcParamsText);
                         }
+                        var color = tooltipTitleStyles_1.color;
                         prevRowHeight = _this.drawStandardTooltipLegends(ctx, [
                             {
-                                title: { text: '', color: tooltipTextStyles_1.color },
-                                value: { text: text, color: tooltipTextStyles_1.color }
+                                title: { text: '', color: color },
+                                value: { text: text, color: color }
                             }
-                        ], coordinate, left, prevRowHeight, maxWidth, tooltipTextStyles_1);
+                        ], coordinate, left, prevRowHeight, maxWidth, tooltipTitleStyles_1);
                     }
-                    prevRowHeight = _this.drawStandardTooltipFeatures(ctx, middleFeatures, coordinate, indicator, left, prevRowHeight, maxWidth);
+                    prevRowHeight = _this.drawStandardTooltipFeatures(ctx, features[1], coordinate, indicator, left, prevRowHeight, maxWidth);
                     if (legendValid) {
-                        prevRowHeight = _this.drawStandardTooltipLegends(ctx, legends, coordinate, left, prevRowHeight, maxWidth, tooltipStyles.text);
+                        prevRowHeight = _this.drawStandardTooltipLegends(ctx, legends, coordinate, left, prevRowHeight, maxWidth, tooltipLegendStyles_1);
                     }
-                    // draw right icons
-                    prevRowHeight = _this.drawStandardTooltipFeatures(ctx, rightFeatures, coordinate, indicator, left, prevRowHeight, maxWidth);
+                    // draw right features
+                    prevRowHeight = _this.drawStandardTooltipFeatures(ctx, features[2], coordinate, indicator, left, prevRowHeight, maxWidth);
                     top = coordinate.y + prevRowHeight;
                 }
             });
@@ -8168,9 +8225,18 @@ var IndicatorTooltipView = /** @class */ (function (_super) {
                     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ignore
                     finalBackgroundColor = activeBackgroundColor !== null && activeBackgroundColor !== void 0 ? activeBackgroundColor : backgroundColor;
                 }
+                var actionType = 'onCandleTooltipFeatureClick';
+                var featureInfo = {
+                    paneId: paneId_1,
+                    feature: feature
+                };
+                if (isValid(indicator)) {
+                    actionType = 'onIndicatorTooltipFeatureClick';
+                    featureInfo.indicator = indicator;
+                }
                 var eventHandler = {
-                    mouseClickEvent: _this._featureClickEvent({ paneId: paneId_1, indicator: indicator, feature: feature }),
-                    mouseMoveEvent: _this._featureMouseMoveEvent({ paneId: paneId_1, indicator: indicator, feature: feature })
+                    mouseClickEvent: _this._featureClickEvent(actionType, featureInfo),
+                    mouseMoveEvent: _this._featureMouseMoveEvent(featureInfo)
                 };
                 var contentWidth = 0;
                 if (type === 'icon_font') {
@@ -8269,12 +8335,18 @@ var IndicatorTooltipView = /** @class */ (function (_super) {
         var chartStore = this.getWidget().getPane().getChart().getChartStore();
         var styles = chartStore.getStyles().indicator;
         var tooltipStyles = styles.tooltip;
-        var name = tooltipStyles.showName ? indicator.shortName : '';
+        var tooltipTitleStyles = tooltipStyles.title;
+        var name = '';
         var calcParamsText = '';
-        if (tooltipStyles.showParams) {
-            var calcParams = indicator.calcParams;
-            if (calcParams.length > 0) {
-                calcParamsText = "(".concat(calcParams.join(','), ")");
+        if (tooltipTitleStyles.show) {
+            if (tooltipTitleStyles.showName) {
+                name = indicator.shortName;
+            }
+            if (tooltipTitleStyles.showParams) {
+                var calcParams = indicator.calcParams;
+                if (calcParams.length > 0) {
+                    calcParamsText = "(".concat(calcParams.join(','), ")");
+                }
             }
         }
         var tooltipData = { name: name, calcParamsText: calcParamsText, legends: [], features: tooltipStyles.features };
@@ -8286,6 +8358,7 @@ var IndicatorTooltipView = /** @class */ (function (_super) {
         var legends = [];
         if (indicator.visible) {
             var data_1 = (_b = (_a = result[dataIndex]) !== null && _a !== void 0 ? _a : result[dataIndex - 1]) !== null && _b !== void 0 ? _b : {};
+            var defaultValue_1 = tooltipStyles.legend.defaultValue;
             eachFigures(indicator, dataIndex, styles, function (figure, figureStyles) {
                 if (isString(figure.title)) {
                     var color = figureStyles.color;
@@ -8298,7 +8371,7 @@ var IndicatorTooltipView = /** @class */ (function (_super) {
                         }
                         value = decimalFold.format(thousandsSeparator.format(value));
                     }
-                    legends.push({ title: { text: figure.title, color: color }, value: { text: (value !== null && value !== void 0 ? value : tooltipStyles.defaultValue), color: color } });
+                    legends.push({ title: { text: figure.title, color: color }, value: { text: (value !== null && value !== void 0 ? value : defaultValue_1), color: color } });
                 }
             });
             tooltipData.legends = legends;
@@ -8315,18 +8388,20 @@ var IndicatorTooltipView = /** @class */ (function (_super) {
                 xAxis: pane.getChart().getXAxisPane().getAxisComponent(),
                 yAxis: pane.getAxisComponent()
             }), customName = _c.name, customCalcParamsText = _c.calcParamsText, customLegends = _c.legends, customFeatures = _c.features;
-            if (isString(customName) && tooltipStyles.showName) {
-                tooltipData.name = customName;
-            }
-            if (isString(customCalcParamsText) && tooltipStyles.showParams) {
-                tooltipData.calcParamsText = customCalcParamsText;
+            if (tooltipTitleStyles.show) {
+                if (isString(customName) && tooltipTitleStyles.showName) {
+                    tooltipData.name = customName;
+                }
+                if (isString(customCalcParamsText) && tooltipTitleStyles.showParams) {
+                    tooltipData.calcParamsText = customCalcParamsText;
+                }
             }
             if (isValid(customFeatures)) {
                 tooltipData.features = customFeatures;
             }
             if (isValid(customLegends) && indicator.visible) {
                 var optimizedLegends_1 = [];
-                var color_1 = styles.tooltip.text.color;
+                var color_1 = styles.tooltip.legend.color;
                 customLegends.forEach(function (data) {
                     var title = { text: '', color: color_1 };
                     if (isObject(data.title)) {
@@ -9101,6 +9176,7 @@ var CandleHighLowPriceView = /** @class */ (function (_super) {
         return _super !== null && _super.apply(this, arguments) || this;
     }
     CandleHighLowPriceView.prototype.drawImp = function (ctx) {
+        var _a, _b;
         var widget = this.getWidget();
         var pane = widget.getPane();
         var chartStore = pane.getChart().getChartStore();
@@ -9109,19 +9185,19 @@ var CandleHighLowPriceView = /** @class */ (function (_super) {
         var lowPriceMarkStyles = priceMarkStyles.low;
         if (priceMarkStyles.show && (highPriceMarkStyles.show || lowPriceMarkStyles.show)) {
             var highestLowestPrice = chartStore.getVisibleRangeHighLowPrice();
-            var precision = chartStore.getPrecision();
+            var precision = (_b = (_a = chartStore.getSymbol()) === null || _a === void 0 ? void 0 : _a.pricePrecision) !== null && _b !== void 0 ? _b : 2;
             var yAxis = pane.getAxisComponent();
-            var _a = highestLowestPrice[0], high = _a.price, highX = _a.x;
-            var _b = highestLowestPrice[1], low = _b.price, lowX = _b.x;
+            var _c = highestLowestPrice[0], high = _c.price, highX = _c.x;
+            var _d = highestLowestPrice[1], low = _d.price, lowX = _d.x;
             var highY = yAxis.convertToPixel(high);
             var lowY = yAxis.convertToPixel(low);
             var decimalFold = chartStore.getDecimalFold();
             var thousandsSeparator = chartStore.getThousandsSeparator();
             if (highPriceMarkStyles.show && high !== Number.MIN_SAFE_INTEGER) {
-                this._drawMark(ctx, decimalFold.format(thousandsSeparator.format(formatPrecision(high, precision.price))), { x: highX, y: highY }, highY < lowY ? [-2, -5] : [2, 5], highPriceMarkStyles);
+                this._drawMark(ctx, decimalFold.format(thousandsSeparator.format(formatPrecision(high, precision))), { x: highX, y: highY }, highY < lowY ? [-2, -5] : [2, 5], highPriceMarkStyles);
             }
             if (lowPriceMarkStyles.show && low !== Number.MAX_SAFE_INTEGER) {
-                this._drawMark(ctx, decimalFold.format(thousandsSeparator.format(formatPrecision(low, precision.price))), { x: lowX, y: lowY }, highY < lowY ? [2, 5] : [-2, -5], lowPriceMarkStyles);
+                this._drawMark(ctx, decimalFold.format(thousandsSeparator.format(formatPrecision(low, precision))), { x: lowX, y: lowY }, highY < lowY ? [2, 5] : [-2, -5], lowPriceMarkStyles);
             }
         }
     };
@@ -9265,6 +9341,38 @@ var CandleLastPriceView = /** @class */ (function (_super) {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+var PeriodTypeXAxisFormat = {
+    second: 'HH:mm:ss',
+    minute: 'HH:mm',
+    hour: 'MM-DD HH:mm',
+    day: 'YYYY-MM-DD',
+    week: 'YYYY-MM-DD',
+    month: 'YYYY-MM',
+    year: 'YYYY'
+};
+var PeriodTypeCrosshairTooltipFormat = {
+    second: 'HH:mm:ss',
+    minute: 'YYYY-MM-DD HH:mm',
+    hour: 'YYYY-MM-DD HH:mm',
+    day: 'YYYY-MM-DD',
+    week: 'YYYY-MM-DD',
+    month: 'YYYY-MM',
+    year: 'YYYY'
+};
+
+/**
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+
+ * http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 var zhCN = {
     time: '时间：',
     open: '开：',
@@ -9273,7 +9381,14 @@ var zhCN = {
     close: '收：',
     volume: '成交量：',
     turnover: '成交额：',
-    change: '涨幅：'
+    change: '涨幅：',
+    second: '秒',
+    minute: '',
+    hour: '小时',
+    day: '天',
+    week: '周',
+    month: '月',
+    year: '年'
 };
 
 /**
@@ -9297,7 +9412,14 @@ var enUS = {
     close: 'Close: ',
     volume: 'Volume: ',
     turnover: 'Turnover: ',
-    change: 'Change: '
+    change: 'Change: ',
+    second: 'S',
+    minute: '',
+    hour: 'H',
+    day: 'D',
+    week: 'W',
+    month: 'M',
+    year: 'Y'
 };
 
 /**
@@ -9386,22 +9508,36 @@ var CandleTooltipView = /** @class */ (function (_super) {
         }
     };
     CandleTooltipView.prototype._drawCandleStandardTooltip = function (ctx, left, top, maxWidth) {
+        var _a;
         var chartStore = this.getWidget().getPane().getChart().getChartStore();
         var styles = chartStore.getStyles().candle;
         var tooltipStyles = styles.tooltip;
-        var tooltipTextStyles = tooltipStyles.text;
+        var tooltipLegendStyles = tooltipStyles.legend;
         var prevRowHeight = 0;
         var coordinate = { x: left, y: top };
         var crosshair = chartStore.getCrosshair();
         if (this.isDrawTooltip(crosshair, tooltipStyles)) {
-            var legends = this._getCandleTooltipLegends();
-            var _a = __read(this.classifyTooltipFeatures(tooltipStyles.features), 3), leftFeatures = _a[0], middleFeatures = _a[1], rightFeatures = _a[2];
-            prevRowHeight = this.drawStandardTooltipFeatures(ctx, leftFeatures, coordinate, null, left, prevRowHeight, maxWidth);
-            prevRowHeight = this.drawStandardTooltipFeatures(ctx, middleFeatures, coordinate, null, left, prevRowHeight, maxWidth);
-            if (legends.length > 0) {
-                prevRowHeight = this.drawStandardTooltipLegends(ctx, legends, coordinate, left, prevRowHeight, maxWidth, tooltipTextStyles);
+            var tooltipTitleStyles = tooltipStyles.title;
+            if (tooltipTitleStyles.show) {
+                var _b = (_a = chartStore.getPeriod()) !== null && _a !== void 0 ? _a : {}, _c = _b.type, type = _c === void 0 ? '' : _c, _d = _b.span, span = _d === void 0 ? '' : _d;
+                var text = formatTemplateString(tooltipTitleStyles.template, __assign(__assign({}, chartStore.getSymbol()), { period: "".concat(span).concat(i18n(type, chartStore.getLocale())) }));
+                var color = tooltipTitleStyles.color;
+                var height = this.drawStandardTooltipLegends(ctx, [
+                    {
+                        title: { text: '', color: color },
+                        value: { text: text, color: color }
+                    }
+                ], { x: left, y: top }, left, 0, maxWidth, tooltipTitleStyles);
+                coordinate.y = coordinate.y + height;
             }
-            prevRowHeight = this.drawStandardTooltipFeatures(ctx, rightFeatures, coordinate, null, left, prevRowHeight, maxWidth);
+            var legends = this._getCandleTooltipLegends();
+            var features = this.classifyTooltipFeatures(tooltipStyles.features);
+            prevRowHeight = this.drawStandardTooltipFeatures(ctx, features[0], coordinate, null, left, prevRowHeight, maxWidth);
+            prevRowHeight = this.drawStandardTooltipFeatures(ctx, features[1], coordinate, null, left, prevRowHeight, maxWidth);
+            if (legends.length > 0) {
+                prevRowHeight = this.drawStandardTooltipLegends(ctx, legends, coordinate, left, prevRowHeight, maxWidth, tooltipLegendStyles);
+            }
+            prevRowHeight = this.drawStandardTooltipFeatures(ctx, features[2], coordinate, null, left, prevRowHeight, maxWidth);
         }
         return coordinate.y + prevRowHeight;
     };
@@ -9419,27 +9555,27 @@ var CandleTooltipView = /** @class */ (function (_super) {
         if (isDrawCandleTooltip || isDrawIndicatorTooltip) {
             var candleLegends = this._getCandleTooltipLegends();
             var offsetLeft = candleTooltipStyles.offsetLeft, offsetTop = candleTooltipStyles.offsetTop, offsetRight = candleTooltipStyles.offsetRight, offsetBottom = candleTooltipStyles.offsetBottom;
-            var _c = candleTooltipStyles.text, baseTextMarginLeft_1 = _c.marginLeft, baseTextMarginRight_1 = _c.marginRight, baseTextMarginTop_1 = _c.marginTop, baseTextMarginBottom_1 = _c.marginBottom, baseTextSize_1 = _c.size, baseTextWeight_1 = _c.weight, baseTextFamily_1 = _c.family;
+            var _c = candleTooltipStyles.legend, baseLegendMarginLeft_1 = _c.marginLeft, baseLegendMarginRight_1 = _c.marginRight, baseLegendMarginTop_1 = _c.marginTop, baseLegendMarginBottom_1 = _c.marginBottom, baseLegendSize_1 = _c.size, baseLegendWeight_1 = _c.weight, baseLegendFamily_1 = _c.family;
             var _d = candleTooltipStyles.rect, rectPosition = _d.position, rectPaddingLeft = _d.paddingLeft, rectPaddingRight_1 = _d.paddingRight, rectPaddingTop = _d.paddingTop, rectPaddingBottom = _d.paddingBottom, rectOffsetLeft = _d.offsetLeft, rectOffsetRight = _d.offsetRight, rectOffsetTop = _d.offsetTop, rectOffsetBottom = _d.offsetBottom, rectBorderSize_1 = _d.borderSize, rectBorderRadius = _d.borderRadius, rectBorderColor = _d.borderColor, rectBackgroundColor = _d.color;
             var maxTextWidth_1 = 0;
             var rectWidth_1 = 0;
             var rectHeight_1 = 0;
             if (isDrawCandleTooltip) {
-                ctx.font = createFont(baseTextSize_1, baseTextWeight_1, baseTextFamily_1);
+                ctx.font = createFont(baseLegendSize_1, baseLegendWeight_1, baseLegendFamily_1);
                 candleLegends.forEach(function (data) {
                     var title = data.title;
                     var value = data.value;
                     var text = "".concat(title.text).concat(value.text);
-                    var labelWidth = ctx.measureText(text).width + baseTextMarginLeft_1 + baseTextMarginRight_1;
+                    var labelWidth = ctx.measureText(text).width + baseLegendMarginLeft_1 + baseLegendMarginRight_1;
                     maxTextWidth_1 = Math.max(maxTextWidth_1, labelWidth);
                 });
-                rectHeight_1 += ((baseTextMarginBottom_1 + baseTextMarginTop_1 + baseTextSize_1) * candleLegends.length);
+                rectHeight_1 += ((baseLegendMarginBottom_1 + baseLegendMarginTop_1 + baseLegendSize_1) * candleLegends.length);
             }
-            var _e = indicatorTooltipStyles.text, indicatorTextMarginLeft_1 = _e.marginLeft, indicatorTextMarginRight_1 = _e.marginRight, indicatorTextMarginTop_1 = _e.marginTop, indicatorTextMarginBottom_1 = _e.marginBottom, indicatorTextSize_1 = _e.size, indicatorTextWeight_1 = _e.weight, indicatorTextFamily_1 = _e.family;
+            var _e = indicatorTooltipStyles.legend, indicatorLegendMarginLeft_1 = _e.marginLeft, indicatorLegendMarginRight_1 = _e.marginRight, indicatorLegendMarginTop_1 = _e.marginTop, indicatorLegendMarginBottom_1 = _e.marginBottom, indicatorLegendSize_1 = _e.size, indicatorLegendWeight_1 = _e.weight, indicatorLegendFamily_1 = _e.family;
             var indicatorLegendsArray_1 = [];
             if (isDrawIndicatorTooltip) {
                 var indicators = chartStore.getIndicatorsByPaneId(pane.getId());
-                ctx.font = createFont(indicatorTextSize_1, indicatorTextWeight_1, indicatorTextFamily_1);
+                ctx.font = createFont(indicatorLegendSize_1, indicatorLegendWeight_1, indicatorLegendFamily_1);
                 indicators.forEach(function (indicator) {
                     var tooltipDataLegends = _this.getIndicatorTooltipData(indicator).legends;
                     indicatorLegendsArray_1.push(tooltipDataLegends);
@@ -9447,9 +9583,9 @@ var CandleTooltipView = /** @class */ (function (_super) {
                         var title = data.title;
                         var value = data.value;
                         var text = "".concat(title.text).concat(value.text);
-                        var textWidth = ctx.measureText(text).width + indicatorTextMarginLeft_1 + indicatorTextMarginRight_1;
+                        var textWidth = ctx.measureText(text).width + indicatorLegendMarginLeft_1 + indicatorLegendMarginRight_1;
                         maxTextWidth_1 = Math.max(maxTextWidth_1, textWidth);
-                        rectHeight_1 += (indicatorTextMarginTop_1 + indicatorTextMarginBottom_1 + indicatorTextSize_1);
+                        rectHeight_1 += (indicatorLegendMarginTop_1 + indicatorLegendMarginBottom_1 + indicatorLegendSize_1);
                     });
                 });
             }
@@ -9515,13 +9651,13 @@ var CandleTooltipView = /** @class */ (function (_super) {
                         borderRadius: rectBorderRadius
                     }
                 })) === null || _b === void 0 ? void 0 : _b.draw(ctx);
-                var candleTextX_1 = rectX_1 + rectBorderSize_1 + rectPaddingLeft + baseTextMarginLeft_1;
+                var candleTextX_1 = rectX_1 + rectBorderSize_1 + rectPaddingLeft + baseLegendMarginLeft_1;
                 var textY_1 = rectY + rectBorderSize_1 + rectPaddingTop;
                 if (isDrawCandleTooltip) {
                     // render candle texts
                     candleLegends.forEach(function (data) {
                         var _a, _b;
-                        textY_1 += baseTextMarginTop_1;
+                        textY_1 += baseLegendMarginTop_1;
                         var title = data.title;
                         (_a = _this.createFigure({
                             name: 'text',
@@ -9532,37 +9668,37 @@ var CandleTooltipView = /** @class */ (function (_super) {
                             },
                             styles: {
                                 color: title.color,
-                                size: baseTextSize_1,
-                                family: baseTextFamily_1,
-                                weight: baseTextWeight_1
+                                size: baseLegendSize_1,
+                                family: baseLegendFamily_1,
+                                weight: baseLegendWeight_1
                             }
                         })) === null || _a === void 0 ? void 0 : _a.draw(ctx);
                         var value = data.value;
                         (_b = _this.createFigure({
                             name: 'text',
                             attrs: {
-                                x: rectX_1 + rectWidth_1 - rectBorderSize_1 - baseTextMarginRight_1 - rectPaddingRight_1,
+                                x: rectX_1 + rectWidth_1 - rectBorderSize_1 - baseLegendMarginRight_1 - rectPaddingRight_1,
                                 y: textY_1,
                                 text: value.text,
                                 align: 'right'
                             },
                             styles: {
                                 color: value.color,
-                                size: baseTextSize_1,
-                                family: baseTextFamily_1,
-                                weight: baseTextWeight_1
+                                size: baseLegendSize_1,
+                                family: baseLegendFamily_1,
+                                weight: baseLegendWeight_1
                             }
                         })) === null || _b === void 0 ? void 0 : _b.draw(ctx);
-                        textY_1 += (baseTextSize_1 + baseTextMarginBottom_1);
+                        textY_1 += (baseLegendSize_1 + baseLegendMarginBottom_1);
                     });
                 }
                 if (isDrawIndicatorTooltip) {
-                    // render indicator texts
-                    var indicatorTextX_1 = rectX_1 + rectBorderSize_1 + rectPaddingLeft + indicatorTextMarginLeft_1;
+                    // render indicator legends
+                    var indicatorTextX_1 = rectX_1 + rectBorderSize_1 + rectPaddingLeft + indicatorLegendMarginLeft_1;
                     indicatorLegendsArray_1.forEach(function (legends) {
                         legends.forEach(function (data) {
                             var _a, _b;
-                            textY_1 += indicatorTextMarginTop_1;
+                            textY_1 += indicatorLegendMarginTop_1;
                             var title = data.title;
                             var value = data.value;
                             (_a = _this.createFigure({
@@ -9574,27 +9710,27 @@ var CandleTooltipView = /** @class */ (function (_super) {
                                 },
                                 styles: {
                                     color: title.color,
-                                    size: indicatorTextSize_1,
-                                    family: indicatorTextFamily_1,
-                                    weight: indicatorTextWeight_1
+                                    size: indicatorLegendSize_1,
+                                    family: indicatorLegendFamily_1,
+                                    weight: indicatorLegendWeight_1
                                 }
                             })) === null || _a === void 0 ? void 0 : _a.draw(ctx);
                             (_b = _this.createFigure({
                                 name: 'text',
                                 attrs: {
-                                    x: rectX_1 + rectWidth_1 - rectBorderSize_1 - indicatorTextMarginRight_1 - rectPaddingRight_1,
+                                    x: rectX_1 + rectWidth_1 - rectBorderSize_1 - indicatorLegendMarginRight_1 - rectPaddingRight_1,
                                     y: textY_1,
                                     text: value.text,
                                     align: 'right'
                                 },
                                 styles: {
                                     color: value.color,
-                                    size: indicatorTextSize_1,
-                                    family: indicatorTextFamily_1,
-                                    weight: indicatorTextWeight_1
+                                    size: indicatorLegendSize_1,
+                                    family: indicatorLegendFamily_1,
+                                    weight: indicatorLegendWeight_1
                                 }
                             })) === null || _b === void 0 ? void 0 : _b.draw(ctx);
-                            textY_1 += (indicatorTextSize_1 + indicatorTextMarginBottom_1);
+                            textY_1 += (indicatorLegendSize_1 + indicatorLegendMarginBottom_1);
                         });
                     });
                 }
@@ -9602,7 +9738,7 @@ var CandleTooltipView = /** @class */ (function (_super) {
         }
     };
     CandleTooltipView.prototype._getCandleTooltipLegends = function () {
-        var _a, _b, _c, _d, _e, _f;
+        var _a, _b, _c, _d, _e, _f, _g, _h;
         var chartStore = this.getWidget().getPane().getChart().getChartStore();
         var styles = chartStore.getStyles().candle;
         var dataList = chartStore.getDataList();
@@ -9610,30 +9746,21 @@ var CandleTooltipView = /** @class */ (function (_super) {
         var decimalFold = chartStore.getDecimalFold();
         var thousandsSeparator = chartStore.getThousandsSeparator();
         var locale = chartStore.getLocale();
-        var _g = chartStore.getPrecision(), pricePrecision = _g.price, volumePrecision = _g.volume;
-        var dataIndex = (_a = chartStore.getCrosshair().dataIndex) !== null && _a !== void 0 ? _a : 0;
+        var _j = (_a = chartStore.getSymbol()) !== null && _a !== void 0 ? _a : {}, _k = _j.pricePrecision, pricePrecision = _k === void 0 ? 2 : _k, _l = _j.volumePrecision, volumePrecision = _l === void 0 ? 0 : _l;
+        var period = chartStore.getPeriod();
+        var dataIndex = (_b = chartStore.getCrosshair().dataIndex) !== null && _b !== void 0 ? _b : 0;
         var tooltipStyles = styles.tooltip;
-        var textColor = tooltipStyles.text.color;
-        var prev = (_b = dataList[dataIndex - 1]) !== null && _b !== void 0 ? _b : null;
+        var _m = tooltipStyles.legend, textColor = _m.color, defaultValue = _m.defaultValue, custom = _m.custom;
+        var prev = (_c = dataList[dataIndex - 1]) !== null && _c !== void 0 ? _c : null;
         var current = dataList[dataIndex];
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ignore
-        var prevClose = (_c = prev === null || prev === void 0 ? void 0 : prev.close) !== null && _c !== void 0 ? _c : current.close;
+        var prevClose = (_d = prev === null || prev === void 0 ? void 0 : prev.close) !== null && _d !== void 0 ? _d : current.close;
         var changeValue = current.close - prevClose;
-        var mapping = {
-            '{time}': formatter.formatDate(current.timestamp, 'YYYY-MM-DD HH:mm', 'tooltip'),
-            '{open}': decimalFold.format(thousandsSeparator.format(formatPrecision(current.open, pricePrecision))),
-            '{high}': decimalFold.format(thousandsSeparator.format(formatPrecision(current.high, pricePrecision))),
-            '{low}': decimalFold.format(thousandsSeparator.format(formatPrecision(current.low, pricePrecision))),
-            '{close}': decimalFold.format(thousandsSeparator.format(formatPrecision(current.close, pricePrecision))),
-            '{volume}': decimalFold.format(thousandsSeparator.format(formatter.formatBigNumber(formatPrecision((_d = current.volume) !== null && _d !== void 0 ? _d : tooltipStyles.defaultValue, volumePrecision)))),
-            '{turnover}': decimalFold.format(thousandsSeparator.format(formatPrecision((_e = current.turnover) !== null && _e !== void 0 ? _e : tooltipStyles.defaultValue, pricePrecision))),
-            '{change}': prevClose === 0 ? tooltipStyles.defaultValue : "".concat(thousandsSeparator.format(formatPrecision(changeValue / prevClose * 100)), "%")
-        };
-        var legends = (isFunction(tooltipStyles.custom)
-            ? tooltipStyles.custom({ prev: prev, current: current, next: (_f = dataList[dataIndex + 1]) !== null && _f !== void 0 ? _f : null }, styles)
-            : tooltipStyles.custom);
+        var mapping = __assign(__assign({}, current), { time: formatter.formatDate(current.timestamp, PeriodTypeCrosshairTooltipFormat[(_e = period === null || period === void 0 ? void 0 : period.type) !== null && _e !== void 0 ? _e : 'day'], 'tooltip'), open: decimalFold.format(thousandsSeparator.format(formatPrecision(current.open, pricePrecision))), high: decimalFold.format(thousandsSeparator.format(formatPrecision(current.high, pricePrecision))), low: decimalFold.format(thousandsSeparator.format(formatPrecision(current.low, pricePrecision))), close: decimalFold.format(thousandsSeparator.format(formatPrecision(current.close, pricePrecision))), volume: decimalFold.format(thousandsSeparator.format(formatter.formatBigNumber(formatPrecision((_f = current.volume) !== null && _f !== void 0 ? _f : defaultValue, volumePrecision)))), turnover: decimalFold.format(thousandsSeparator.format(formatPrecision((_g = current.turnover) !== null && _g !== void 0 ? _g : defaultValue, pricePrecision))), change: prevClose === 0 ? defaultValue : "".concat(thousandsSeparator.format(formatPrecision(changeValue / prevClose * 100)), "%") });
+        var legends = (isFunction(custom)
+            ? custom({ prev: prev, current: current, next: (_h = dataList[dataIndex + 1]) !== null && _h !== void 0 ? _h : null }, styles)
+            : custom);
         return legends.map(function (_a) {
-            var _b;
             var title = _a.title, value = _a.value;
             var t = { text: '', color: textColor };
             if (isObject(title)) {
@@ -9643,21 +9770,17 @@ var CandleTooltipView = /** @class */ (function (_super) {
                 t.text = title;
             }
             t.text = i18n(t.text, locale);
-            var v = { text: tooltipStyles.defaultValue, color: textColor };
+            var v = { text: defaultValue, color: textColor };
             if (isObject(value)) {
                 v = __assign({}, value);
             }
             else {
                 v.text = value;
             }
-            var match = /{(\S*)}/.exec(v.text);
-            if (match !== null && match.length > 1) {
-                var key = "{".concat(match[1], "}");
-                v.text = v.text.replace(key, ((_b = mapping[key]) !== null && _b !== void 0 ? _b : tooltipStyles.defaultValue));
-                if (key === '{change}') {
-                    v.color = changeValue === 0 ? styles.priceMark.last.noChangeColor : (changeValue > 0 ? styles.priceMark.last.upColor : styles.priceMark.last.downColor);
-                }
+            if (isValid(/{change}/.exec(v.text))) {
+                v.color = changeValue === 0 ? styles.priceMark.last.noChangeColor : (changeValue > 0 ? styles.priceMark.last.upColor : styles.priceMark.last.downColor);
             }
+            v.text = formatTemplateString(v.text, mapping);
             return { title: t, value: v };
         });
     };
@@ -9701,6 +9824,7 @@ var CrosshairFeatureView = /** @class */ (function (_super) {
     }
     CrosshairFeatureView.prototype.drawImp = function (ctx) {
         var _this = this;
+        var _a, _b;
         var widget = this.getWidget();
         var pane = widget.getPane();
         var chartStore = widget.getPane().getChart().getChartStore();
@@ -9718,7 +9842,7 @@ var CrosshairFeatureView = /** @class */ (function (_super) {
                 if (yAxis.inside && horizontalTextStyles.show) {
                     var value = yAxis.convertFromPixel(crosshair.y);
                     var range = yAxis.getRange();
-                    var text = yAxis.displayValueToText(yAxis.realValueToDisplayValue(yAxis.valueToRealValue(value, { range: range }), { range: range }), chartStore.getPrecision().price);
+                    var text = yAxis.displayValueToText(yAxis.realValueToDisplayValue(yAxis.valueToRealValue(value, { range: range }), { range: range }), (_b = (_a = chartStore.getSymbol()) === null || _a === void 0 ? void 0 : _a.pricePrecision) !== null && _b !== void 0 ? _b : 2);
                     text = chartStore.getDecimalFold().format(chartStore.getThousandsSeparator().format(text));
                     yAxisTextWidth = horizontalTextStyles.paddingLeft +
                         calcTextWidth(text, horizontalTextStyles.size, horizontalTextStyles.weight, horizontalTextStyles.family) +
@@ -10043,7 +10167,7 @@ var CandleLastPriceLabelView = /** @class */ (function (_super) {
     }
     CandleLastPriceLabelView.prototype.drawImp = function (ctx) {
         var _this = this;
-        var _a, _b, _c;
+        var _a, _b, _c, _d;
         var widget = this.getWidget();
         var pane = widget.getPane();
         var bounding = widget.getBounding();
@@ -10052,13 +10176,13 @@ var CandleLastPriceLabelView = /** @class */ (function (_super) {
         var lastPriceMarkStyles = priceMarkStyles.last;
         var lastPriceMarkTextStyles = lastPriceMarkStyles.text;
         if (priceMarkStyles.show && lastPriceMarkStyles.show && lastPriceMarkTextStyles.show) {
-            var precision = chartStore.getPrecision();
+            var precision = (_b = (_a = chartStore.getSymbol()) === null || _a === void 0 ? void 0 : _a.pricePrecision) !== null && _b !== void 0 ? _b : 2;
             var yAxis = pane.getAxisComponent();
             var dataList = chartStore.getDataList();
             var data_1 = dataList[dataList.length - 1];
             if (isValid(data_1)) {
                 var close_1 = data_1.close, open_1 = data_1.open;
-                var comparePrice = lastPriceMarkStyles.compareRule === 'current_open' ? open_1 : ((_b = (_a = dataList[dataList.length - 2]) === null || _a === void 0 ? void 0 : _a.close) !== null && _b !== void 0 ? _b : close_1);
+                var comparePrice = lastPriceMarkStyles.compareRule === 'current_open' ? open_1 : ((_d = (_c = dataList[dataList.length - 2]) === null || _c === void 0 ? void 0 : _c.close) !== null && _d !== void 0 ? _d : close_1);
                 var priceY = yAxis.convertToNicePixel(close_1);
                 var backgroundColor_1 = '';
                 if (close_1 > comparePrice) {
@@ -10080,32 +10204,32 @@ var CandleLastPriceLabelView = /** @class */ (function (_super) {
                     x_1 = bounding.width;
                     textAlgin_1 = 'right';
                 }
+                var textFigures_1 = [];
                 var yAxisRange = yAxis.getRange();
-                var priceText = yAxis.displayValueToText(yAxis.realValueToDisplayValue(yAxis.valueToRealValue(close_1, { range: yAxisRange }), { range: yAxisRange }), precision.price);
+                var priceText = yAxis.displayValueToText(yAxis.realValueToDisplayValue(yAxis.valueToRealValue(close_1, { range: yAxisRange }), { range: yAxisRange }), precision);
                 priceText = chartStore.getDecimalFold().format(chartStore.getThousandsSeparator().format(priceText));
                 var paddingLeft = lastPriceMarkTextStyles.paddingLeft, paddingRight = lastPriceMarkTextStyles.paddingRight, paddingTop = lastPriceMarkTextStyles.paddingTop, paddingBottom = lastPriceMarkTextStyles.paddingBottom, size = lastPriceMarkTextStyles.size, family = lastPriceMarkTextStyles.family, weight = lastPriceMarkTextStyles.weight;
-                var priceTextWidth_1 = paddingLeft + calcTextWidth(priceText, size, weight, family) + paddingRight;
+                var textWidth_1 = paddingLeft + calcTextWidth(priceText, size, weight, family) + paddingRight;
                 var priceTextHeight = paddingTop + size + paddingBottom;
-                (_c = this.createFigure({
+                textFigures_1.push({
                     name: 'text',
                     attrs: {
                         x: x_1,
                         y: priceY,
-                        width: priceTextWidth_1,
+                        width: textWidth_1,
                         height: priceTextHeight,
                         text: priceText,
                         align: textAlgin_1,
                         baseline: 'middle'
                     },
                     styles: __assign(__assign({}, lastPriceMarkTextStyles), { backgroundColor: backgroundColor_1 })
-                })) === null || _c === void 0 ? void 0 : _c.draw(ctx);
+                });
                 var formatExtendText_1 = chartStore.getInnerFormatter().formatExtendText;
                 var priceTextHalfHeight = size / 2;
                 var aboveY_1 = priceY - priceTextHalfHeight - paddingTop;
                 var belowY_1 = priceY + priceTextHalfHeight + paddingBottom;
                 lastPriceMarkStyles.extendTexts.forEach(function (item, index) {
-                    var _a;
-                    var text = formatExtendText_1({ type: 'lastPrice', data: data_1, index: index });
+                    var text = formatExtendText_1({ type: 'last_price', data: data_1, index: index });
                     if (text.length > 0 && item.show) {
                         var textHalfHeight = item.size / 2;
                         var textY = 0;
@@ -10119,20 +10243,26 @@ var CandleLastPriceLabelView = /** @class */ (function (_super) {
                             textY = belowY_1;
                             belowY_1 += (textHalfHeight + item.paddingBottom);
                         }
-                        (_a = _this.createFigure({
+                        textWidth_1 = Math.max(textWidth_1, item.paddingLeft + calcTextWidth(text, item.size, item.weight, item.family) + item.paddingRight);
+                        textFigures_1.push({
                             name: 'text',
                             attrs: {
                                 x: x_1,
                                 y: textY,
-                                width: priceTextWidth_1,
+                                width: textWidth_1,
                                 height: item.paddingTop + item.size + item.paddingBottom,
                                 text: text,
                                 align: textAlgin_1,
                                 baseline: 'middle'
                             },
                             styles: __assign(__assign({}, item), { backgroundColor: backgroundColor_1 })
-                        })) === null || _a === void 0 ? void 0 : _a.draw(ctx);
+                        });
                     }
+                });
+                textFigures_1.forEach(function (figure) {
+                    var _a;
+                    figure.attrs.width = textWidth_1;
+                    (_a = _this.createFigure(figure)) === null || _a === void 0 ? void 0 : _a.draw(ctx);
                 });
             }
         }
@@ -10275,11 +10405,12 @@ var OverlayYAxisView = /** @class */ (function (_super) {
             var decimalFold_1 = chartStore.getDecimalFold();
             var thousandsSeparator_1 = chartStore.getThousandsSeparator();
             coordinates.forEach(function (coordinate, index) {
+                var _a, _b;
                 var point = overlay.points[index];
                 if (isNumber(point.value)) {
                     topY_1 = Math.min(topY_1, coordinate.y);
                     bottomY_1 = Math.max(bottomY_1, coordinate.y);
-                    var text = decimalFold_1.format(thousandsSeparator_1.format(formatPrecision(point.value, chartStore.getPrecision().price)));
+                    var text = decimalFold_1.format(thousandsSeparator_1.format(formatPrecision(point.value, (_b = (_a = chartStore.getSymbol()) === null || _a === void 0 ? void 0 : _a.pricePrecision) !== null && _b !== void 0 ? _b : 2)));
                     figures.push({ type: 'text', attrs: { x: x_1, y: coordinate.y, text: text, align: textAlign_1, baseline: 'middle' }, ignoreEvent: true });
                 }
             });
@@ -10352,12 +10483,13 @@ var CrosshairHorizontalLabelView = /** @class */ (function (_super) {
         return styles.horizontal;
     };
     CrosshairHorizontalLabelView.prototype.getText = function (crosshair, chartStore, axis) {
+        var _a, _b;
         var yAxis = axis;
         var value = axis.convertFromPixel(crosshair.y);
         var precision = 0;
         var shouldFormatBigNumber = false;
         if (yAxis.isInCandle()) {
-            precision = chartStore.getPrecision().price;
+            precision = (_b = (_a = chartStore.getSymbol()) === null || _a === void 0 ? void 0 : _a.pricePrecision) !== null && _b !== void 0 ? _b : 2;
         }
         else {
             var indicators = chartStore.getIndicatorsByPaneId(crosshair.paneId);
@@ -10545,6 +10677,7 @@ var YAxisImp = /** @class */ (function (_super) {
         merge(this, others);
     };
     YAxisImp.prototype.createRangeImp = function () {
+        var _a, _b;
         var parent = this.getParent();
         var chart = parent.getChart();
         var chartStore = chart.getChartStore();
@@ -10569,7 +10702,7 @@ var YAxisImp = /** @class */ (function (_super) {
         var precision = 4;
         var inCandle = this.isInCandle();
         if (inCandle) {
-            var pricePrecision = chartStore.getPrecision().price;
+            var pricePrecision = (_b = (_a = chartStore.getSymbol()) === null || _a === void 0 ? void 0 : _a.pricePrecision) !== null && _b !== void 0 ? _b : 2;
             if (indicatorPrecision !== Number.MAX_SAFE_INTEGER) {
                 precision = Math.min(indicatorPrecision, pricePrecision);
             }
@@ -10654,7 +10787,7 @@ var YAxisImp = /** @class */ (function (_super) {
             realTo = maxCheck ? realTo : (minCheck ? realTo + TICK_COUNT * minSpan : realTo + halfTickCount * minSpan);
         }
         var height = this.getBounding().height;
-        var _a = this.gap, top = _a.top, bottom = _a.bottom;
+        var _c = this.gap, top = _c.top, bottom = _c.bottom;
         var topRate = top;
         if (topRate >= 1) {
             topRate = topRate / height;
@@ -10699,7 +10832,7 @@ var YAxisImp = /** @class */ (function (_super) {
     };
     YAxisImp.prototype.createTicksImp = function () {
         var _this = this;
-        var _a, _b;
+        var _a, _b, _c, _d;
         var range = this.getRange();
         var displayFrom = range.displayFrom, displayTo = range.displayTo, displayRange = range.displayRange;
         var ticks = [];
@@ -10728,7 +10861,7 @@ var YAxisImp = /** @class */ (function (_super) {
         var precision = 0;
         var shouldFormatBigNumber = false;
         if (this.isInCandle()) {
-            precision = chartStore.getPrecision().price;
+            precision = (_d = (_c = chartStore.getSymbol()) === null || _c === void 0 ? void 0 : _c.pricePrecision) !== null && _d !== void 0 ? _d : 2;
         }
         else {
             indicators.forEach(function (indicator) {
@@ -10767,6 +10900,7 @@ var YAxisImp = /** @class */ (function (_super) {
         return optimalTicks;
     };
     YAxisImp.prototype.getAutoSize = function () {
+        var _a, _b;
         var pane = this.getParent();
         var chart = pane.getChart();
         var chartStore = chart.getChartStore();
@@ -10792,44 +10926,64 @@ var YAxisImp = /** @class */ (function (_super) {
                 yAxisWidth += (yAxisStyles.tickText.marginStart + yAxisStyles.tickText.marginEnd + textWidth_1);
             }
         }
+        var priceMarkStyles = styles.candle.priceMark;
+        var lastPriceMarkTextVisible = priceMarkStyles.show && priceMarkStyles.last.show && priceMarkStyles.last.text.show;
+        var lastPriceTextWidth = 0;
         var crosshairStyles = styles.crosshair;
-        var crosshairVerticalTextWidth = 0;
-        if (crosshairStyles.show &&
-            crosshairStyles.horizontal.show &&
-            crosshairStyles.horizontal.text.show) {
-            var indicators = chartStore.getIndicatorsByPaneId(pane.getId());
-            var indicatorPrecision_1 = 0;
-            var shouldFormatBigNumber_1 = false;
-            indicators.forEach(function (indicator) {
-                indicatorPrecision_1 = Math.max(indicator.precision, indicatorPrecision_1);
-                shouldFormatBigNumber_1 || (shouldFormatBigNumber_1 = indicator.shouldFormatBigNumber);
-            });
-            var precision = 2;
-            if (this.isInCandle()) {
-                var pricePrecision = chartStore.getPrecision().price;
-                var lastValueMarkStyles = styles.indicator.lastValueMark;
-                if (lastValueMarkStyles.show && lastValueMarkStyles.text.show) {
-                    precision = Math.max(indicatorPrecision_1, pricePrecision);
+        var crosshairHorizontalTextVisible = crosshairStyles.show && crosshairStyles.horizontal.show && crosshairStyles.horizontal.text.show;
+        var crosshairHorizontalTextWidth = 0;
+        if (lastPriceMarkTextVisible || crosshairHorizontalTextVisible) {
+            var pricePrecision = (_b = (_a = chartStore.getSymbol()) === null || _a === void 0 ? void 0 : _a.pricePrecision) !== null && _b !== void 0 ? _b : 2;
+            var max = this.getRange().displayTo;
+            if (lastPriceMarkTextVisible) {
+                var dataList = chartStore.getDataList();
+                var data_1 = dataList[dataList.length - 1];
+                if (isValid(data_1)) {
+                    var _c = priceMarkStyles.last.text, paddingLeft = _c.paddingLeft, paddingRight = _c.paddingRight, size = _c.size, family = _c.family, weight = _c.weight;
+                    lastPriceTextWidth = paddingLeft + calcTextWidth(formatPrecision(data_1.close, pricePrecision), size, weight, family) + paddingRight;
+                    var formatExtendText_1 = chartStore.getInnerFormatter().formatExtendText;
+                    priceMarkStyles.last.extendTexts.forEach(function (item, index) {
+                        var text = formatExtendText_1({ type: 'last_price', data: data_1, index: index });
+                        if (text.length > 0 && item.show) {
+                            lastPriceTextWidth = Math.max(lastPriceTextWidth, item.paddingLeft + calcTextWidth(text, item.size, item.weight, item.family) + item.paddingRight);
+                        }
+                    });
+                }
+            }
+            if (crosshairHorizontalTextVisible) {
+                var indicators = chartStore.getIndicatorsByPaneId(pane.getId());
+                var indicatorPrecision_1 = 0;
+                var shouldFormatBigNumber_1 = false;
+                indicators.forEach(function (indicator) {
+                    indicatorPrecision_1 = Math.max(indicator.precision, indicatorPrecision_1);
+                    shouldFormatBigNumber_1 || (shouldFormatBigNumber_1 = indicator.shouldFormatBigNumber);
+                });
+                var precision = 2;
+                if (this.isInCandle()) {
+                    var lastValueMarkStyles = styles.indicator.lastValueMark;
+                    if (lastValueMarkStyles.show && lastValueMarkStyles.text.show) {
+                        precision = Math.max(indicatorPrecision_1, pricePrecision);
+                    }
+                    else {
+                        precision = pricePrecision;
+                    }
                 }
                 else {
-                    precision = pricePrecision;
+                    precision = indicatorPrecision_1;
                 }
+                var valueText = formatPrecision(max, precision);
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ignore
+                if (shouldFormatBigNumber_1) {
+                    valueText = chartStore.getInnerFormatter().formatBigNumber(valueText);
+                }
+                valueText = chartStore.getDecimalFold().format(valueText);
+                crosshairHorizontalTextWidth += (crosshairStyles.horizontal.text.paddingLeft +
+                    crosshairStyles.horizontal.text.paddingRight +
+                    crosshairStyles.horizontal.text.borderSize * 2 +
+                    calcTextWidth(valueText, crosshairStyles.horizontal.text.size, crosshairStyles.horizontal.text.weight, crosshairStyles.horizontal.text.family));
             }
-            else {
-                precision = indicatorPrecision_1;
-            }
-            var valueText = formatPrecision(this.getRange().displayTo, precision);
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- ignore
-            if (shouldFormatBigNumber_1) {
-                valueText = chartStore.getInnerFormatter().formatBigNumber(valueText);
-            }
-            valueText = chartStore.getDecimalFold().format(valueText);
-            crosshairVerticalTextWidth += (crosshairStyles.horizontal.text.paddingLeft +
-                crosshairStyles.horizontal.text.paddingRight +
-                crosshairStyles.horizontal.text.borderSize * 2 +
-                calcTextWidth(valueText, crosshairStyles.horizontal.text.size, crosshairStyles.horizontal.text.weight, crosshairStyles.horizontal.text.family));
         }
-        return Math.max(yAxisWidth, crosshairVerticalTextWidth);
+        return Math.max(yAxisWidth, lastPriceTextWidth, crosshairHorizontalTextWidth);
     };
     YAxisImp.prototype.getBounding = function () {
         return this.getParent().getYAxisWidget().getBounding();
@@ -11421,8 +11575,9 @@ var CrosshairVerticalLabelView = /** @class */ (function (_super) {
         return styles.vertical;
     };
     CrosshairVerticalLabelView.prototype.getText = function (crosshair, chartStore) {
+        var _a, _b;
         var timestamp = crosshair.timestamp;
-        return chartStore.getInnerFormatter().formatDate(timestamp, 'YYYY-MM-DD HH:mm', 'crosshair');
+        return chartStore.getInnerFormatter().formatDate(timestamp, PeriodTypeCrosshairTooltipFormat[(_b = (_a = chartStore.getPeriod()) === null || _a === void 0 ? void 0 : _a.type) !== null && _b !== void 0 ? _b : 'day'], 'crosshair');
     };
     CrosshairVerticalLabelView.prototype.getTextAttrs = function (text, textWidth, crosshair, bounding, _axis, styles) {
         var x = crosshair.realX;
@@ -11530,81 +11685,30 @@ var XAxisImp = /** @class */ (function (_super) {
         return range;
     };
     XAxisImp.prototype.createTicksImp = function () {
-        var _this = this;
-        var _a = this.getRange(), realFrom = _a.realFrom, realTo = _a.realTo;
+        var _a;
+        var _b = this.getRange(), realFrom = _b.realFrom, realTo = _b.realTo, from = _b.from;
         var chartStore = this.getParent().getChart().getChartStore();
         var formatDate = chartStore.getInnerFormatter().formatDate;
-        var timeWeightTickList = chartStore.getTimeWeightTickList();
+        var period = chartStore.getPeriod();
         var ticks = [];
-        var fitTicks = function (list, start) {
-            var e_1, _a;
-            try {
-                for (var list_1 = __values(list), list_1_1 = list_1.next(); !list_1_1.done; list_1_1 = list_1.next()) {
-                    var timeWeightTick = list_1_1.value;
-                    if (timeWeightTick.dataIndex >= start && timeWeightTick.dataIndex < realTo) {
-                        var timestamp = timeWeightTick.timestamp, weight = timeWeightTick.weight, dataIndex = timeWeightTick.dataIndex;
-                        var text = '';
-                        switch (weight) {
-                            case TimeWeightConstants.Year: {
-                                text = formatDate(timestamp, 'YYYY', 'xAxis');
-                                break;
-                            }
-                            case TimeWeightConstants.Month: {
-                                text = formatDate(timestamp, 'YYYY-MM', 'xAxis');
-                                break;
-                            }
-                            case TimeWeightConstants.Day: {
-                                text = formatDate(timestamp, 'MM-DD', 'xAxis');
-                                break;
-                            }
-                            case TimeWeightConstants.Hour:
-                            case TimeWeightConstants.Minute: {
-                                text = formatDate(timestamp, 'HH:mm', 'xAxis');
-                                break;
-                            }
-                            case TimeWeightConstants.Second: {
-                                text = formatDate(timestamp, 'HH:mm:ss', 'xAxis');
-                                break;
-                            }
-                            default: {
-                                text = formatDate(timestamp, 'YYYY-MM-DD HH:mm', 'xAxis');
-                                break;
-                            }
-                        }
-                        ticks.push({
-                            coord: _this.convertToPixel(dataIndex),
-                            value: timestamp,
-                            text: text
-                        });
-                    }
-                }
-            }
-            catch (e_1_1) { e_1 = { error: e_1_1 }; }
-            finally {
-                try {
-                    if (list_1_1 && !list_1_1.done && (_a = list_1.return)) _a.call(list_1);
-                }
-                finally { if (e_1) throw e_1.error; }
-            }
-        };
-        fitTicks(timeWeightTickList, realFrom);
-        // Future time tick
-        if (timeWeightTickList.length > 0) {
-            var barSpace = chartStore.getBarSpace().bar;
-            var textStyles = chartStore.getStyles().xAxis.tickText;
-            var barCount = calcBetweenTimeWeightTickBarCount(barSpace, textStyles);
-            var startDataIndex = timeWeightTickList[timeWeightTickList.length - 1].dataIndex + barCount - 1;
-            var dataList = [];
-            for (var i = startDataIndex; i < realTo; i++) {
+        var barSpace = chartStore.getBarSpace().bar;
+        var textStyles = chartStore.getStyles().xAxis.tickText;
+        var tickTextWidth = Math.max(calcTextWidth('YYYY-MM-DD HH:mm:ss', textStyles.size, textStyles.weight, textStyles.family), this.getBounding().width / 8);
+        var tickBetweenBarCount = Math.ceil(tickTextWidth / barSpace);
+        if (tickBetweenBarCount % 2 !== 0) {
+            tickBetweenBarCount += 1;
+        }
+        var startDataIndex = Math.floor(realFrom / tickBetweenBarCount) * tickBetweenBarCount;
+        for (var i = startDataIndex; i < realTo; i += tickBetweenBarCount) {
+            if (i >= from) {
                 var timestamp = chartStore.dataIndexToTimestamp(i);
                 if (isNumber(timestamp)) {
-                    dataList.push({ timestamp: timestamp });
+                    ticks.push({
+                        coord: this.convertToPixel(i),
+                        value: timestamp,
+                        text: formatDate(timestamp, PeriodTypeXAxisFormat[(_a = period === null || period === void 0 ? void 0 : period.type) !== null && _a !== void 0 ? _a : 'day'], 'xAxis')
+                    });
                 }
-            }
-            if (dataList.length > 0) {
-                var map = new Map();
-                classifyTimeWeightTicks(map, dataList, chartStore.getDateTimeFormat(), startDataIndex);
-                fitTicks(createTimeWeightTickList(map, barSpace, textStyles), startDataIndex);
             }
         }
         if (isFunction(this.createTicks)) {
@@ -13359,7 +13463,8 @@ var Event = /** @class */ (function () {
         var separatorSize = this._chart.getStyles().separator.size;
         try {
             for (var separatorPanes_1 = __values(separatorPanes), separatorPanes_1_1 = separatorPanes_1.next(); !separatorPanes_1_1.done; separatorPanes_1_1 = separatorPanes_1.next()) {
-                var _c = __read(separatorPanes_1_1.value, 2), pane_1 = _c[1];
+                var items = separatorPanes_1_1.value;
+                var pane_1 = items[1];
                 var bounding = pane_1.getBounding();
                 var top_1 = bounding.top - Math.round((REAL_SEPARATOR_HEIGHT - separatorSize) / 2);
                 if (x >= bounding.left && x <= bounding.left + bounding.width &&
@@ -13454,9 +13559,11 @@ var ChartImp = /** @class */ (function () {
             measureWidth: true,
             update: true,
             buildYAxisTick: false,
+            cacheYAxisWidth: false,
             forceBuildYAxisTick: false
         };
         this._layoutPending = false;
+        this._cacheYAxisWidth = { left: 0, right: 0 };
         this._initContainer(container);
         this._chartEvent = new Event(this._chartContainer, this);
         this._chartStore = new StoreImp(this, options);
@@ -13617,7 +13724,7 @@ var ChartImp = /** @class */ (function () {
     ChartImp.prototype.getSeparatorPanes = function () { return this._separatorPanes; };
     ChartImp.prototype.layout = function (options) {
         var _this = this;
-        var _a, _b, _c, _d, _e, _f;
+        var _a, _b, _c, _d, _e, _f, _g;
         if ((_a = options.sort) !== null && _a !== void 0 ? _a : false) {
             this._layoutOptions.sort = options.sort;
         }
@@ -13633,7 +13740,10 @@ var ChartImp = /** @class */ (function () {
         if ((_e = options.buildYAxisTick) !== null && _e !== void 0 ? _e : false) {
             this._layoutOptions.buildYAxisTick = options.buildYAxisTick;
         }
-        if ((_f = options.buildYAxisTick) !== null && _f !== void 0 ? _f : false) {
+        if ((_f = options.cacheYAxisWidth) !== null && _f !== void 0 ? _f : false) {
+            this._layoutOptions.cacheYAxisWidth = options.cacheYAxisWidth;
+        }
+        if ((_g = options.buildYAxisTick) !== null && _g !== void 0 ? _g : false) {
             this._layoutOptions.forceBuildYAxisTick = options.forceBuildYAxisTick;
         }
         if (!this._layoutPending) {
@@ -13648,7 +13758,7 @@ var ChartImp = /** @class */ (function () {
     };
     ChartImp.prototype._layout = function () {
         var _this = this;
-        var _a = this._layoutOptions, sort = _a.sort, measureHeight = _a.measureHeight, measureWidth = _a.measureWidth, update = _a.update, buildYAxisTick = _a.buildYAxisTick, forceBuildYAxisTick = _a.forceBuildYAxisTick;
+        var _a = this._layoutOptions, sort = _a.sort, measureHeight = _a.measureHeight, measureWidth = _a.measureWidth, update = _a.update, buildYAxisTick = _a.buildYAxisTick, cacheYAxisWidth = _a.cacheYAxisWidth, forceBuildYAxisTick = _a.forceBuildYAxisTick;
         if (sort) {
             while (isValid(this._chartContainer.firstChild)) {
                 this._chartContainer.removeChild(this._chartContainer.firstChild);
@@ -13739,6 +13849,12 @@ var ChartImp = /** @class */ (function () {
                     }
                 }
             });
+            if (cacheYAxisWidth) {
+                leftYAxisWidth_1 = Math.max(this._cacheYAxisWidth.left, leftYAxisWidth_1);
+                rightYAxisWidth_1 = Math.max(this._cacheYAxisWidth.right, rightYAxisWidth_1);
+            }
+            this._cacheYAxisWidth.left = leftYAxisWidth_1;
+            this._cacheYAxisWidth.right = rightYAxisWidth_1;
             var mainWidth = totalWidth;
             var mainLeft = 0;
             var mainRight = 0;
@@ -13781,6 +13897,7 @@ var ChartImp = /** @class */ (function () {
             measureWidth: false,
             update: false,
             buildYAxisTick: false,
+            cacheYAxisWidth: false,
             forceBuildYAxisTick: false
         };
     };
@@ -13869,11 +13986,17 @@ var ChartImp = /** @class */ (function () {
         }
         return null;
     };
-    ChartImp.prototype.setPrecision = function (precision) {
-        this._chartStore.setPrecision(precision);
+    ChartImp.prototype.setSymbol = function (symbol) {
+        this._chartStore.setSymbol(symbol);
     };
-    ChartImp.prototype.getPrecision = function () {
-        return this._chartStore.getPrecision();
+    ChartImp.prototype.getSymbol = function () {
+        return this._chartStore.getSymbol();
+    };
+    ChartImp.prototype.setPeriod = function (period) {
+        this._chartStore.setPeriod(period);
+    };
+    ChartImp.prototype.getPeriod = function () {
+        return this._chartStore.getPeriod();
     };
     ChartImp.prototype.setStyles = function (value) {
         var _this = this;
@@ -13970,31 +14093,14 @@ var ChartImp = /** @class */ (function () {
     ChartImp.prototype.getVisibleRange = function () {
         return this._chartStore.getVisibleRange();
     };
-    ChartImp.prototype.clearData = function () {
-        this._chartStore.clearData();
+    ChartImp.prototype.resetData = function () {
+        this._chartStore.resetData();
     };
     ChartImp.prototype.getDataList = function () {
         return this._chartStore.getDataList();
     };
-    ChartImp.prototype.applyNewData = function (data, more) {
-        this._drawPanes.forEach(function (pane) {
-            pane.getAxisComponent().setAutoCalcTickFlag(true);
-        });
-        var loadDataMore = { forward: false, backward: false };
-        if (isBoolean(more)) {
-            loadDataMore.forward = more;
-            loadDataMore.backward = more;
-        }
-        else {
-            loadDataMore = __assign(__assign({}, loadDataMore), more);
-        }
-        this._chartStore.addData(data, 'init', loadDataMore);
-    };
-    ChartImp.prototype.updateData = function (data) {
-        this._chartStore.addData(data, 'update');
-    };
-    ChartImp.prototype.setLoadMoreDataCallback = function (cb) {
-        this._chartStore.setLoadMoreDataCallback(cb);
+    ChartImp.prototype.setDataLoader = function (dataLoader) {
+        this._chartStore.setDataLoader(dataLoader);
     };
     ChartImp.prototype.createIndicator = function (value, isStack, paneOptions) {
         var _a;
@@ -14577,4 +14683,3 @@ var utils = {
 };
 
 export { dispose, getFigureClass, getOverlayClass, getSupportedFigures, getSupportedIndicators, getSupportedLocales, getSupportedOverlays, init, registerFigure, registerIndicator, registerLocale, registerOverlay, registerStyles, registerXAxis, registerYAxis, utils, version };
-//# sourceMappingURL=index.esm.js.map
