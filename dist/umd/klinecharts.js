@@ -1,6 +1,6 @@
 /**
      * @license
-     * KLineChart v0.0.7
+     * KLineChart v0.0.8
      * Copyright (c) 2019 lihu.
      * Licensed under Apache License 2.0 https://www.apache.org/licenses/LICENSE-2.0
      */
@@ -38,7 +38,7 @@ function logError(api, invalidParam, append) {
     log('%c😟 klinecharts error%c %s%s%s', 'padding:3px 4px;border-radius:2px;color:#ffffff;background-color:#F92855;', 'color:#F92855;', api, invalidParam, append );
 }
 function logTag() {
-    log('%c❤️ Welcome to klinecharts. Version is 0.0.7', 'border-radius:4px;border:dashed 1px #1677FF;line-height:70px;padding:0 20px;margin:16px 0;font-size:14px;color:#1677FF;', '', '', '', '');
+    log('%c❤️ Welcome to klinecharts. Version is 0.0.8', 'border-radius:4px;border:dashed 1px #1677FF;line-height:70px;padding:0 20px;margin:16px 0;font-size:14px;color:#1677FF;', '', '', '', '');
 }
 
 /**
@@ -14601,7 +14601,7 @@ var chartBaseId = 1;
  * @return {string}
  */
 function version() {
-    return '0.0.7';
+    return '0.0.8';
 }
 /**
  * Init chart instance

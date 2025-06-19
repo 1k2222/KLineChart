@@ -1,6 +1,6 @@
 /**
      * @license
-     * KLineChart v0.0.7
+     * KLineChart v0.0.8
      * Copyright (c) 2019 lihu.
      * Licensed under Apache License 2.0 https://www.apache.org/licenses/LICENSE-2.0
      */

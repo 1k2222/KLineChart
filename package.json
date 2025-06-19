@@ -1,6 +1,6 @@
 {
   "name": "klinecharts",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Lightweight k-line chart built with html5 canvas",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -17,6 +17,7 @@
     "LICENSE",
     "README.md",
     "dist/",
+    "src/",
     "scripts/",
     "licenses/",
     "NOTICE"

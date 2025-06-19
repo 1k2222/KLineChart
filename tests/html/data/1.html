@@ -13,40 +13,203 @@ limitations under the License.
 -->
 
 <!DOCTYPE html>
-<html lang="en" >
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="keywords" content="kline time-line candlestick stock chart canvas k线 行情 蜡烛图 分时图 技术指标 图表"/>
-    <meta name="description" content="shape test"/>
-    <script type="text/javascript" src="../../../dist/umd/klinecharts.js"></script>
-    <script type="text/javascript" src="../../js/dataSource.js"></script>
-    <link rel="stylesheet" type="text/css" href="../../css/chart.css"/>
-    <title>Data -- Real time update</title>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="chart"></div>
-    <script>
-      window.onload = function () {
-        var chart = klinecharts.init('chart')
-        chart.createIndicator('VOL')
-        chart.applyNewData(generated(), true)
-        function update () {
-          setTimeout(function() {
-            const kLineDataList = chart.getDataList()
-            const data = { ...kLineDataList[kLineDataList.length - 1] }
-            data.close = data.close + (Math.random() * 10 - 5)
-            data.high = Math.max(data.close, data.high)
-            data.low = Math.min(data.close, data.low)
-            data.volume += Math.round(Math.random() * 20)
-            chart.updateData(data)
-            update()
-          }, 1000)
-        }
-        // update()
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#000000"/>
+  <meta name="keywords" content="kline time-line candlestick stock chart canvas k线 行情 蜡烛图 分时图 技术指标 图表"/>
+  <meta name="description" content="shape test"/>
+  <script type="text/javascript" src="../../../dist/umd/klinecharts.js"></script>
+  <script type="text/javascript" src="../../js/dataSource.js"></script>
+  <link rel="stylesheet" type="text/css" href="../../css/chart.css"/>
+  <title>Data -- Real time update</title>
+</head>
+<body>
+<noscript>You need to enable JavaScript to run this app.</noscript>
+<div id="chart"></div>
+<script>
+  window.onload = function () {
+    const Color = {
+      RED: '#F92855',
+      GREEN: '#2DC08E',
+      WHITE: '#FFFFFF',
+      GREY: '#76808F',
+      BLUE: '#1677FF',
+      LIGHTRED: 'hsl(347, 95%, 90%)',
+      LIGHTGREEN: 'hsl(160, 62%, 90%)',
+      LIGHTGREY: 'hsl(216, 10%, 90%)'
+    }
+
+    function hexToRgb(hex, alpha) {
+      const h = hex.replace(/^#/, '')
+      const i = parseInt(h, 16)
+      const r = (i >> 16) & 255
+      const g = (i >> 8) & 255
+      const b = i & 255
+
+      return `rgba(${r}, ${g}, ${b}, ${alpha ?? 1})`
+    }
+
+    function getUSCandleStyle() {
+      const highLow = {
+        show: true,
+        color: Color.GREY,
+        textOffset: 5,
+        textSize: 10,
+        textFamily: 'Helvetica Neue',
+        textWeight: 'normal'
       }
-    </script>
-  </body>
+      return {
+        type: 'candle_solid',
+        bar: {
+          compareRule: 'current_open',
+          upColor: Color.RED,
+          downColor: Color.GREEN,
+          noChangeColor: Color.GREY,
+          upBorderColor: Color.RED,
+          downBorderColor: Color.GREEN,
+          noChangeBorderColor: Color.GREY,
+          upWickColor: Color.RED,
+          downWickColor: Color.GREEN,
+          noChangeWickColor: Color.GREY
+        },
+        fadedBar: {
+          compareRule: 'current_open',
+          upColor: Color.LIGHTRED,
+          downColor: Color.LIGHTGREEN,
+          noChangeColor: Color.LIGHTGREY,
+          upBorderColor: Color.LIGHTRED,
+          downBorderColor: Color.LIGHTGREEN,
+          noChangeBorderColor: Color.LIGHTGREY,
+          upWickColor: Color.LIGHTRED,
+          downWickColor: Color.LIGHTGREEN,
+          noChangeWickColor: Color.LIGHTGREY
+        },
+        area: {
+          lineSize: 2,
+          lineColor: Color.BLUE,
+          smooth: false,
+          value: 'close',
+          backgroundColor: [{
+            offset: 0,
+            color: hexToRgb(Color.BLUE, 0.01)
+          }, {
+            offset: 1,
+            color: hexToRgb(Color.BLUE, 0.2)
+          }],
+          point: {
+            show: true,
+            color: Color.BLUE,
+            radius: 4,
+            rippleColor: hexToRgb(Color.BLUE, 0.3),
+            rippleRadius: 8,
+            animation: true,
+            animationDuration: 1000
+          }
+        },
+        priceMark: {
+          show: true,
+          high: {...highLow},
+          low: {...highLow},
+          last: {
+            show: true,
+            compareRule: 'current_open',
+            upColor: Color.RED,
+            downColor: Color.GREEN,
+            noChangeColor: Color.GREY,
+            line: {
+              show: true,
+              style: 'dashed',
+              dashedValue: [4, 4],
+              size: 1
+            },
+            text: {
+              show: true,
+              style: 'fill',
+              size: 12,
+              paddingLeft: 4,
+              paddingTop: 4,
+              paddingRight: 4,
+              paddingBottom: 4,
+              borderColor: 'transparent',
+              borderStyle: 'solid',
+              borderSize: 0,
+              borderDashedValue: [2, 2],
+              color: Color.WHITE,
+              family: 'Helvetica Neue',
+              weight: 'normal',
+              borderRadius: 2
+            },
+            extendTexts: []
+          }
+        },
+        tooltip: {
+          offsetLeft: 4,
+          offsetTop: 6,
+          offsetRight: 4,
+          offsetBottom: 6,
+          showRule: 'always',
+          showType: 'standard',
+          rect: {
+            position: 'fixed',
+            paddingLeft: 4,
+            paddingRight: 4,
+            paddingTop: 4,
+            paddingBottom: 4,
+            offsetLeft: 4,
+            offsetTop: 4,
+            offsetRight: 4,
+            offsetBottom: 4,
+            borderRadius: 4,
+            borderSize: 1,
+            borderColor: '#F2F3F5',
+            color: '#FEFEFE'
+          },
+          title: {
+            show: true,
+            size: 14,
+            family: 'Helvetica Neue',
+            weight: 'normal',
+            color: Color.GREY,
+            marginLeft: 8,
+            marginTop: 4,
+            marginRight: 8,
+            marginBottom: 4,
+            template: '{ticker} · {period}'
+          },
+          legend: {
+            size: 12,
+            family: 'Helvetica Neue',
+            weight: 'normal',
+            color: Color.GREY,
+            marginLeft: 8,
+            marginTop: 4,
+            marginRight: 8,
+            marginBottom: 4,
+            defaultValue: 'n/a',
+            template: [
+              {title: 'time', value: '{time}'},
+              {title: 'open', value: '{open}'},
+              {title: 'high', value: '{high}'},
+              {title: 'low', value: '{low}'},
+              {title: 'close', value: '{close}'},
+              {title: 'volume', value: '{volume}'}
+            ]
+          },
+          features: []
+        }
+      }
+    }
+
+    var chart = klinecharts.init('chart', {styles: getUSCandleStyle()})
+    chart.createIndicator('VOL')
+    chart.setDataLoader({
+      getBars: ({callback}) => {
+        callback(generated())
+      }
+    })
+  }
+</script>
+</body>
 </html>
